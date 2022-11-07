@@ -3,7 +3,7 @@
 // found in the LICENSE file. See the AUTHORS file for names of contributors.
 
 #include "db/db_impl.h"
-
+#include <iostream>
 #include <algorithm>
 #include <atomic>
 #include <cstdint>
@@ -507,6 +507,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   mutex_.AssertHeld();
   const uint64_t start_micros = env_->NowMicros();
   FileMetaData meta;
+  meta.level = 0;
   meta.number = versions_->NewFileNumber();
   pending_outputs_.insert(meta.number);
   Iterator* iter = mem->NewIterator();
@@ -538,6 +539,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     edit->AddFile(level, meta.number, meta.file_size, meta.smallest,
                   meta.largest);
   }
+  meta.level = level;
 
   CompactionStats stats;
   stats.micros = env_->NowMicros() - start_micros;
@@ -817,7 +819,7 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
   std::string fname = TableFileName(dbname_, file_number);
   Status s = env_->NewWritableFile(fname, &compact->outfile);
   if (s.ok()) {
-    compact->builder = new TableBuilder(options_, compact->outfile);
+    compact->builder = new TableBuilder(options_, compact->outfile, compact->compaction->level()+1);
   }
   return s;
 }
@@ -1554,6 +1556,12 @@ Status DestroyDB(const std::string& dbname, const Options& options) {
     env->RemoveDir(dbname);  // Ignore error in case dir contains other files
   }
   return result;
+}
+
+std::vector<long> DBImpl::GetBytesPerLevel() { 
+  MutexLock l(&mutex_); 
+  Version *curr_version = versions_->current();
+  return curr_version->GetBytesPerLevel();
 }
 
 }  // namespace leveldb
