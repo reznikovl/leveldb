@@ -21,10 +21,8 @@ class BloomFilterPolicy : public FilterPolicy {
  public:
   explicit BloomFilterPolicy(std::vector<long> bits_per_key_per_level)
       : bits_per_key_per_level_(bits_per_key_per_level) {
-    std::cout << "In bloom constructor" << std::endl;
     // We intentionally round down to reduce probing cost a little bit
     for (int i = 0; i < bits_per_key_per_level_.size(); i++) {
-      std::cout << "Level " << i << " is " << bits_per_key_per_level[i] << std::endl;
       size_t k_ = static_cast<size_t>(bits_per_key_per_level_[i] * 0.69);
       if (k_ < 1) k_ = 1;
       if (k_ > 30) k_ = 30;
@@ -39,7 +37,7 @@ class BloomFilterPolicy : public FilterPolicy {
                     int level) const override {
     // Compute bloom filter size (in both bits and bytes)
     // std::cout << "Creating filter of size" << n << std::endl;
-    std::cout << "Creating filter of size " << n << "for level " << level << std::endl;
+    // std::cout << "Creating filter of size " << n << "for level " << level << std::endl;
     size_t bits = n * bits_per_key_per_level_[level];
 
     // For small n, we can see a very high false positive rate.  Fix it
