@@ -12,8 +12,8 @@
 std::string gen_random(const int len) {
   static const char alphanum[] =
       "0123456789"
-      // "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      // "abcdefghijklmnopqrstuvwxyz"
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "abcdefghijklmnopqrstuvwxyz"
       ;
   std::string tmp_s;
   tmp_s.reserve(len);
