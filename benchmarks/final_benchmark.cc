@@ -110,63 +110,73 @@ int read_data(leveldb::DB* db, int num_entries, int key_size) {
   return 0;
 }
 
-int main(int argc, char **argv) {
-    if(argc == 1) {
-        std::cout << "Please pass 1 if database should be seeded or 0 otherwise.";
-        return -1;
+int main(int argc, char** argv) {
+  if (argc == 1) {
+    std::cout << "Please pass 1 if database should be seeded or 0 otherwise.";
+    return -1;
+  }
+  leveldb::DB* db;
+  leveldb::Options options;
+  srand(time(nullptr));
+
+  options.create_if_missing = true;
+  options.block_size = 1024 * 1024;
+  options.compression = leveldb::kNoCompression;
+  int key_size = 1024;
+  leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+
+  if (strcmp(argv[1], "1") == 0) {
+    std::cout << "Seeding database..." << std::endl;
+    int status = write_data(db, 50, key_size);
+    if (status != 0) {
+      std::cout << "Error seeding database." << std::endl;
+      return -1;
+    } else {
+      std::cout << "Database seeding complete." << std::endl;
     }
-    leveldb::DB* db;
-    leveldb::Options options;
-    srand(time(nullptr));
+  }
+  // need to delete to flush tree
+  delete db;
+  status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  std::cout << "Calculating bloom filters..." << std::endl;
 
-    options.create_if_missing = true;
-    options.block_size = 1024 * 1024;
-    options.compression = leveldb::kNoCompression;
-    int key_size = 1024;
-    leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
-
-    if (strcmp(argv[1], "1") == 0) {
-        std::cout << "Seeding database..." << std::endl;
-        int status = write_data(db, 1024, key_size);
-        if(status != 0) {
-            std::cout << "Error seeding database." << std::endl;
-            return -1;
-        }
-        else {
-            std::cout << "Database seeding complete." << std::endl;
-        }
+  std::vector<long> bytes_per_level_with_zeros = db->GetBytesPerLevel();
+  std::vector<long> entries_per_level;
+  for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
+    if (bytes_per_level_with_zeros[i] == 0) {
+      break;
     }
-    // need to delete to flush tree
-    delete db;
-    status = leveldb::DB::Open(options, "/tmp/testdb", &db);
-    std::cout << "Calculating bloom filters..." << std::endl;
+    entries_per_level.push_back(bytes_per_level_with_zeros[i] / 8);
+  }
 
-    std::vector<long> bytes_per_level_with_zeros = db->GetBytesPerLevel();
-    std::vector<long> entries_per_level;
-    for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
-        if (bytes_per_level_with_zeros[i] == 0) {
-            break;
-        }
-        entries_per_level.push_back(bytes_per_level_with_zeros[i] / 8);
-    }
+  std::vector<long> bits_per_key_per_level =
+      run_algorithm_c(entries_per_level, key_size, 5);
+  for (int i = 0; i < bits_per_key_per_level.size(); i++) {
+    std::cout << "Level " << i << " bits per key is "
+              << bits_per_key_per_level[i] << std::endl;
+  }
+  delete db;
 
-    std::vector<long> bits_per_key_per_level = run_algorithm_c(entries_per_level, key_size, 5);
-    for (int i = 0; i < bits_per_key_per_level.size(); i++) {
-        std::cout << "Level " << i << " bits per key is " << bits_per_key_per_level[i] << std::endl;
-    }
-    delete db;
+  options.filter_policy = leveldb::NewBloomFilterPolicy(bits_per_key_per_level);
 
-    options.filter_policy =
-        leveldb::NewBloomFilterPolicy(bits_per_key_per_level);
+  status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  std::cout << "Forcing filters" << std::endl;
+  db->ForceFilters();
+  for (int i = 0; i < bits_per_key_per_level.size(); i++) {
+    std::cout << "Level " << i << " bits per key is "
+              << bits_per_key_per_level[i] << std::endl;
+  }
+  delete db;
+  status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  
 
-    status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  std::cout << "Reading..." << std::endl;
 
-    std::cout << "Reading..." << std::endl;
-
-    auto start = std::chrono::high_resolution_clock::now();
-    read_data(db, 12000, key_size);
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-    std::cout << "Done. Took "<< duration.count() << "ms" << std::endl;
-    return 0;
+  auto start = std::chrono::high_resolution_clock::now();
+  read_data(db, 12000, key_size);
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  std::cout << "Done. Took " << duration.count() << "ms" << std::endl;
+  return 0;
 }

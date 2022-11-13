@@ -1152,9 +1152,9 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     mutex_.Lock();
   }
 
-  if (have_stat_update && current->UpdateStats(stats)) {
-    MaybeScheduleCompaction();
-  }
+  // if (have_stat_update && current->UpdateStats(stats)) {
+  //   MaybeScheduleCompaction();
+  // }
   mem->Unref();
   if (imm != nullptr) imm->Unref();
   current->Unref();
@@ -1557,11 +1557,71 @@ Status DestroyDB(const std::string& dbname, const Options& options) {
   }
   return result;
 }
+int DBImpl::ForceFilters() {
+  MutexLock l(&mutex_);
+  Version* curr_version = versions_->current();
+  std::vector<FileMetaData *> files = curr_version->GetAllFiles();
+  int new_file_number_counter = 100000;
+  for(int i = 0; i < files.size(); i++) {
+    RewriteTable(files[i], new_file_number_counter++);
+  }
+  return 0;
+}
 
 std::vector<long> DBImpl::GetBytesPerLevel() { 
   MutexLock l(&mutex_); 
   Version *curr_version = versions_->current();
   return curr_version->GetBytesPerLevel();
 }
+int DBImpl::RewriteTable(FileMetaData *old_meta, uint64_t file_number) {
+  std::string copy = TableFileName(dbname_, file_number);
+  WritableFile* file;
+  Status s = env_->NewWritableFile(copy, &file);
+  if (!s.ok()) {
+    return -1;
+  }
+  TableBuilder* builder = new TableBuilder(options_, file, old_meta->level);
 
-}  // namespace leveldb
+  // Copy data.
+  Iterator* iter = table_cache_->NewIterator(ReadOptions(), old_meta->number,
+                                             old_meta->file_size);
+  int counter = 0;
+  for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
+    builder->Add(iter->key(), iter->value());
+    counter++;
+  }
+  delete iter;
+  //ArchiveFile() debug point: check if problematic to not archive
+  if (counter == 0) {
+    builder->Abandon();  // Nothing to save
+  } else {
+    s = builder->Finish();
+    if (s.ok()) {
+      old_meta->file_size = builder->FileSize();
+    }
+  }
+  delete builder;
+  builder = nullptr;
+  if (s.ok()) {
+    s = file->Close();
+  }
+  delete file;
+  file = nullptr;
+  if (counter > 0 && s.ok()) {
+    std::string orig = TableFileName(dbname_, old_meta->number);
+    env_->RemoveFile(orig);
+    s = env_->RenameFile(copy, orig);
+    if (s.ok()) {
+      // Log(options_.info_log, "Table #%llu: %d entries repaired",
+      //     (unsigned long long)t.meta.number, counter);
+      // old_meta->number = file_number;  // I added this
+      
+    }
+  }
+  if (!s.ok()) {
+    env_->RemoveFile(copy);
+  }
+  return 0;
+}
+}
+ // namespace leveldb

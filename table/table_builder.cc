@@ -220,11 +220,6 @@ Status TableBuilder::Finish() {
       filter_block_handle.EncodeTo(&handle_encoding);
       meta_index_block.Add(key, handle_encoding);
     }
-
-    std::string key2 = "level_of_block";
-    std::string handle_encoding_2;
-    meta_index_block.Add(key2, std::to_string(level_));
-
     // TODO(postrelease): Add stats and other meta blocks
     WriteBlock(&meta_index_block, &metaindex_block_handle);
   }

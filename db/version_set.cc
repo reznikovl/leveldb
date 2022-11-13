@@ -36,6 +36,13 @@ std::vector<long> Version::GetBytesPerLevel() {
   return result;
   
 }
+std::vector<FileMetaData *> Version::GetAllFiles() {
+  std::vector<FileMetaData*> result;
+  for (int i = 0; i < config::kNumLevels; i++) {
+    result.insert(result.end(), files_[i].begin(), files_[i].end());
+  }
+  return result;
+}
 
 static size_t TargetFileSize(const Options* options) {
   return options->max_file_size;

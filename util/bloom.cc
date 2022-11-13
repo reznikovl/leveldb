@@ -37,7 +37,7 @@ class BloomFilterPolicy : public FilterPolicy {
                     int level) const override {
     // Compute bloom filter size (in both bits and bytes)
     // std::cout << "Creating filter of size" << n << std::endl;
-    // std::cout << "Creating filter of size " << n << "for level " << level << std::endl;
+    std::cout << "Creating filter of size " << n << "for level " << level << std::endl;
     size_t bits = n * bits_per_key_per_level_[level];
 
     // For small n, we can see a very high false positive rate.  Fix it
