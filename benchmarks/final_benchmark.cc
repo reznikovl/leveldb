@@ -1,9 +1,11 @@
-#include "leveldb/db.h"
-#include "leveldb/filter_policy.h"
-#include <iostream>
 #include <chrono>
 #include <cmath>
+#include <iostream>
 #include <time.h>
+#include <unistd.h>
+
+#include "leveldb/db.h"
+#include "leveldb/filter_policy.h"
 
 double eval(long run_bits, long runs_entries) {
   return std::exp(run_bits / runs_entries * std::pow(std::log(2), 2) * -1);
@@ -87,6 +89,7 @@ int write_data(leveldb::DB* db, int num_megabytes, int key_size) {
         db->Put(leveldb::WriteOptions(), leveldb::Slice(value), "");
     if (!status.ok()) {
       std::cout << "oops" << std::endl;
+      std::cout << status.ToString();
       return -1;
     }
   }
@@ -101,33 +104,44 @@ int read_data(leveldb::DB* db, int num_entries, int key_size) {
         db->Get(leveldb::ReadOptions(), leveldb::Slice(value), &result);
     if (!(status.ok() || status.IsNotFound())) {
       std::cout << "oops" << std::endl;
+      std::cout << status.ToString();
       return -1;
     }
     if (status.ok()) {
-      std::cout << "actually found" << std::endl;
+      std::cout << "actually found, this should not happen." << std::endl;
     }
   }
   return 0;
 }
 
 int main(int argc, char** argv) {
-  if (argc == 1) {
-    std::cout << "Please pass 1 if database should be seeded or 0 otherwise.";
+  if (argc != 3) {
+    std::cout << "Usage: ./final_benchmark SEED_DATABASE USE_MONKEY where VARS are each either 1 or 0." << std::endl;
     return -1;
   }
-  leveldb::DB* db;
+  
   leveldb::Options options;
-  srand(time(nullptr));
 
-  options.create_if_missing = true;
-  options.block_size = 1024 * 1024;
+  // other options to set:
+  options.block_size = 4 * 1024;
   options.compression = leveldb::kNoCompression;
   int key_size = 1024;
+  int num_megabytes_to_write = 1024;
+  int bits_per_entry_filter = 1;
+
+
+
+  bool seed_database = strcmp(argv[1], "1") == 0;
+  bool use_monkey = strcmp(argv[2], "1") == 0;
+  leveldb::DB* db;
+  srand(time(nullptr));
+  options.create_if_missing = true;
+  
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
 
-  if (strcmp(argv[1], "1") == 0) {
+  if (seed_database) {
     std::cout << "Seeding database..." << std::endl;
-    int status = write_data(db, 50, key_size);
+    int status = write_data(db, num_megabytes_to_write, key_size);
     if (status != 0) {
       std::cout << "Error seeding database." << std::endl;
       return -1;
@@ -135,7 +149,8 @@ int main(int argc, char** argv) {
       std::cout << "Database seeding complete." << std::endl;
     }
   }
-  // need to delete to flush tree
+
+  //reopen db for bloom filter sizes
   delete db;
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
   std::cout << "Calculating bloom filters..." << std::endl;
@@ -149,16 +164,22 @@ int main(int argc, char** argv) {
     entries_per_level.push_back(bytes_per_level_with_zeros[i] / 8);
   }
 
-  std::vector<long> bits_per_key_per_level =
-      run_algorithm_c(entries_per_level, key_size, 5);
-  for (int i = 0; i < bits_per_key_per_level.size(); i++) {
-    std::cout << "Level " << i << " bits per key is "
-              << bits_per_key_per_level[i] << std::endl;
+  std::vector<long> bits_per_key_per_level;
+
+  if (use_monkey) {
+    std::cout << "Allocating bloom filters based on Monkey algo..." << std::endl;
+    bits_per_key_per_level =
+        run_algorithm_c(entries_per_level, key_size, bits_per_entry_filter);
   }
+  else {
+    // make vector of same length with just bits per entry
+    for (int i = 0; i < entries_per_level.size(); i++) {
+      bits_per_key_per_level.push_back(bits_per_entry_filter);
+    }
+  }          
+
   delete db;
-
   options.filter_policy = leveldb::NewBloomFilterPolicy(bits_per_key_per_level);
-
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
   std::cout << "Forcing filters" << std::endl;
   db->ForceFilters();
@@ -168,7 +189,6 @@ int main(int argc, char** argv) {
   }
   delete db;
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
-  
 
   std::cout << "Reading..." << std::endl;
 

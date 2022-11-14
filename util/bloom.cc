@@ -36,8 +36,9 @@ class BloomFilterPolicy : public FilterPolicy {
   void CreateFilter(const Slice* keys, int n, std::string* dst,
                     int level) const override {
     // Compute bloom filter size (in both bits and bytes)
-    // std::cout << "Creating filter of size" << n << std::endl;
-    std::cout << "Creating filter of size " << n << "for level " << level << std::endl;
+    if(level > bits_per_key_per_level_.size() or bits_per_key_per_level_[level] == 0) {
+      return;
+    }
     size_t bits = n * bits_per_key_per_level_[level];
 
     // For small n, we can see a very high false positive rate.  Fix it
@@ -66,7 +67,7 @@ class BloomFilterPolicy : public FilterPolicy {
   }
 
   bool KeyMayMatch(const Slice& key, const Slice& bloom_filter) const override {
-    // std::cout << "attempting to match" << key.ToString() << std::endl;
+    // std::cout << "attempting to match" << std::endl;
     const size_t len = bloom_filter.size();
     if (len < 2) return false;
 

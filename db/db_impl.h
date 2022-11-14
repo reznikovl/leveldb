@@ -51,7 +51,7 @@ class DBImpl : public DB {
   void CompactRange(const Slice* begin, const Slice* end) override;
   std::vector<long> GetBytesPerLevel() override;
   int ForceFilters() override;
-  int RewriteTable(FileMetaData* f, uint64_t file_number);
+  int RewriteTable(FileMetaData* old_meta, VersionEdit* edit, Version* base);
 
   // Extra methods (for testing) that are not in the public DB interface
 

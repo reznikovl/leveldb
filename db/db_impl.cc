@@ -1176,7 +1176,7 @@ Iterator* DBImpl::NewIterator(const ReadOptions& options) {
 void DBImpl::RecordReadSample(Slice key) {
   MutexLock l(&mutex_);
   if (versions_->current()->RecordReadSample(key)) {
-    MaybeScheduleCompaction();
+    // MaybeScheduleCompaction();
   }
 }
 
@@ -1512,8 +1512,8 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
     s = impl->versions_->LogAndApply(&edit, &impl->mutex_);
   }
   if (s.ok()) {
-    impl->RemoveObsoleteFiles();
-    impl->MaybeScheduleCompaction();
+    // impl->RemoveObsoleteFiles();
+    // impl->MaybeScheduleCompaction();
   }
   impl->mutex_.Unlock();
   if (s.ok()) {
@@ -1559,12 +1559,19 @@ Status DestroyDB(const std::string& dbname, const Options& options) {
 }
 int DBImpl::ForceFilters() {
   MutexLock l(&mutex_);
-  Version* curr_version = versions_->current();
-  std::vector<FileMetaData *> files = curr_version->GetAllFiles();
-  int new_file_number_counter = 100000;
+  VersionEdit edit;
+  Version* base = versions_->current();
+  std::vector<FileMetaData*> files = base->GetAllFiles();
   for(int i = 0; i < files.size(); i++) {
-    RewriteTable(files[i], new_file_number_counter++);
+    RewriteTable(files[i], &edit, base);
   }
+  Status s = versions_->LogAndApply(&edit, &mutex_);
+  if (s.ok()) {
+    RemoveObsoleteFiles();
+  } else {
+    std::cout << "problem" << std::endl;
+  }
+
   return 0;
 }
 
@@ -1573,54 +1580,20 @@ std::vector<long> DBImpl::GetBytesPerLevel() {
   Version *curr_version = versions_->current();
   return curr_version->GetBytesPerLevel();
 }
-int DBImpl::RewriteTable(FileMetaData *old_meta, uint64_t file_number) {
-  std::string copy = TableFileName(dbname_, file_number);
-  WritableFile* file;
-  Status s = env_->NewWritableFile(copy, &file);
-  if (!s.ok()) {
-    return -1;
-  }
-  TableBuilder* builder = new TableBuilder(options_, file, old_meta->level);
+int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *base) {
+  mutex_.AssertHeld();
+  FileMetaData meta;
+  meta.level = old_meta->level;
+  meta.number = versions_->NewFileNumber();
+  pending_outputs_.insert(meta.number);
 
-  // Copy data.
   Iterator* iter = table_cache_->NewIterator(ReadOptions(), old_meta->number,
                                              old_meta->file_size);
-  int counter = 0;
-  for (iter->SeekToFirst(); iter->Valid(); iter->Next()) {
-    builder->Add(iter->key(), iter->value());
-    counter++;
-  }
+  Status s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
   delete iter;
-  //ArchiveFile() debug point: check if problematic to not archive
-  if (counter == 0) {
-    builder->Abandon();  // Nothing to save
-  } else {
-    s = builder->Finish();
-    if (s.ok()) {
-      old_meta->file_size = builder->FileSize();
-    }
-  }
-  delete builder;
-  builder = nullptr;
-  if (s.ok()) {
-    s = file->Close();
-  }
-  delete file;
-  file = nullptr;
-  if (counter > 0 && s.ok()) {
-    std::string orig = TableFileName(dbname_, old_meta->number);
-    env_->RemoveFile(orig);
-    s = env_->RenameFile(copy, orig);
-    if (s.ok()) {
-      // Log(options_.info_log, "Table #%llu: %d entries repaired",
-      //     (unsigned long long)t.meta.number, counter);
-      // old_meta->number = file_number;  // I added this
-      
-    }
-  }
-  if (!s.ok()) {
-    env_->RemoveFile(copy);
-  }
+  pending_outputs_.erase(meta.number);
+  edit->AddFile(old_meta->level, meta.number, meta.file_size, meta.smallest, meta.largest);
+  edit->RemoveFile(old_meta->level, old_meta->number);
   return 0;
 }
 }

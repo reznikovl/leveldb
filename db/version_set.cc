@@ -744,8 +744,14 @@ class VersionSet::Builder {
       std::vector<FileMetaData*>* files = &v->files_[level];
       if (level > 0 && !files->empty()) {
         // Must not overlap
-        assert(vset_->icmp_.Compare((*files)[files->size() - 1]->largest,
-                                    f->smallest) < 0);
+        if (vset_->icmp_.Compare((*files)[files->size() - 1]->largest,
+                                 f->smallest) >= 0) {
+                                  int i = 0;
+                                  int j = 1;
+                                  int k = 0;
+                                 }
+          assert(vset_->icmp_.Compare((*files)[files->size() - 1]->largest,
+                                      f->smallest) < 0);
       }
       f->refs++;
       f->level = level;
