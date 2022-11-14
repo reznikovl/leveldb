@@ -116,7 +116,7 @@ int read_data(leveldb::DB* db, int num_entries, int key_size) {
 
 int main(int argc, char** argv) {
   if (argc != 3) {
-    std::cout << "Usage: ./final_benchmark SEED_DATABASE USE_MONKEY where VARS are each either 1 or 0." << std::endl;
+    std::cout << "Usage: ./leron_bench1 SEED_DATABASE USE_MONKEY where VARS are each either 1 or 0." << std::endl;
     return -1;
   }
   

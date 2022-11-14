@@ -104,9 +104,9 @@ class LEVELDB_EXPORT DB {
   virtual std::vector<long> GetBytesPerLevel() = 0;
   virtual int ForceFilters() = 0;
 
-      // Release a previously acquired snapshot.  The caller must not
-      // use "snapshot" after this call.
-      virtual void ReleaseSnapshot(const Snapshot* snapshot) = 0;
+  // Release a previously acquired snapshot.  The caller must not
+  // use "snapshot" after this call.
+  virtual void ReleaseSnapshot(const Snapshot* snapshot) = 0;
 
   // DB implementations can export properties about their state
   // via this method.  If "property" is a valid property understood by this
