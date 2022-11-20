@@ -101,7 +101,7 @@ class LEVELDB_EXPORT DB {
   // state.  The caller must call ReleaseSnapshot(result) when the
   // snapshot is no longer needed.
   virtual const Snapshot* GetSnapshot() = 0;
-  virtual std::vector<long> GetBytesPerLevel() = 0;
+  virtual std::vector<std::vector<long>> GetBytesPerRun() = 0;
   virtual int ForceFilters() = 0;
 
   // Release a previously acquired snapshot.  The caller must not

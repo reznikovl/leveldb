@@ -49,7 +49,7 @@ class DBImpl : public DB {
   bool GetProperty(const Slice& property, std::string* value) override;
   void GetApproximateSizes(const Range* range, int n, uint64_t* sizes) override;
   void CompactRange(const Slice* begin, const Slice* end) override;
-  std::vector<long> GetBytesPerLevel() override;
+  std::vector<std::vector<long>> GetBytesPerRun() override;
   int ForceFilters() override;
   int RewriteTable(FileMetaData* old_meta, VersionEdit* edit, Version* base);
 

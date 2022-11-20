@@ -1575,10 +1575,10 @@ int DBImpl::ForceFilters() {
   return 0;
 }
 
-std::vector<long> DBImpl::GetBytesPerLevel() { 
+std::vector<std::vector<long>> DBImpl::GetBytesPerRun() { 
   MutexLock l(&mutex_); 
   Version *curr_version = versions_->current();
-  return curr_version->GetBytesPerLevel();
+  return curr_version->GetBytesPerRun();
 }
 int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *base) {
   mutex_.AssertHeld();

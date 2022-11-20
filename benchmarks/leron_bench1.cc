@@ -33,9 +33,9 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
   for (auto& i : entries_per_level) {
     total_entries += i;
   }
-  std::cout << "total bytes is " << total_entries * key_size
-            << " which is entries: " << total_entries << std::endl;
-  long delta = total_entries * bits_per_entry_equivalent;
+  std::cout << "Total bytes found is " << total_entries * key_size << std::endl;
+  long delta = total_entries * bits_per_entry_equivalent * 0.9;
+  std::cout << "Adjusting for metadata, approx number of entries is " << delta / bits_per_entry_equivalent << std::endl;
   std::vector<long> runs_entries;
   std::vector<long> runs_bits;
   for (long i = 0; i < entries_per_level.size(); i++) {
@@ -155,25 +155,42 @@ int main(int argc, char** argv) {
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
   std::cout << "Calculating bloom filters..." << std::endl;
 
-  std::vector<long> bytes_per_level_with_zeros = db->GetBytesPerLevel();
-  std::vector<long> entries_per_level;
+  std::vector<std::vector<long>> bytes_per_level_with_zeros = db->GetBytesPerRun();
+  std::vector<long> entries_per_run;
   for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
-    if (bytes_per_level_with_zeros[i] == 0) {
+    if (bytes_per_level_with_zeros[i].size() == 0) {
       break;
     }
-    entries_per_level.push_back(bytes_per_level_with_zeros[i] / 8);
+
+    for(int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
+      entries_per_run.push_back(bytes_per_level_with_zeros[i][j] / 1024);
+    }
   }
 
   std::vector<long> bits_per_key_per_level;
 
   if (use_monkey) {
     std::cout << "Allocating bloom filters based on Monkey algo..." << std::endl;
-    bits_per_key_per_level =
-        run_algorithm_c(entries_per_level, key_size, bits_per_entry_filter);
+    std::vector<long> bits_per_key_per_run =
+        run_algorithm_c(entries_per_run, key_size, bits_per_entry_filter);
+
+    // average filter size over all level 0 files
+    int level0_allocated_bits = 0;
+    int num_level0_runs = bytes_per_level_with_zeros[0].size();
+
+    for (int i = 0; i < num_level0_runs; i++) {
+      level0_allocated_bits += bits_per_key_per_run[i];
+    }
+    bits_per_key_per_level.push_back(level0_allocated_bits / num_level0_runs);
+
+    // rest of the levels have one level per run
+    bits_per_key_per_level.insert(
+        bits_per_key_per_level.end(),
+        bits_per_key_per_run.begin() + num_level0_runs, bits_per_key_per_run.end());
   }
   else {
-    // make vector of same length with just bits per entry
-    for (int i = 0; i < entries_per_level.size(); i++) {
+    // make vector with just bits per entry
+    for (int i = 0; i < 7; i++) {
       bits_per_key_per_level.push_back(bits_per_entry_filter);
     }
   }          

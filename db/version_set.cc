@@ -22,19 +22,16 @@
 
 namespace leveldb {
 
-std::vector<long> Version::GetBytesPerLevel() { 
-  std::vector<long> result;
-  for(int i = 0; i < config::kNumLevels; i++) {
-    std::vector<FileMetaData*> level = files_[i];
-    // std::cout << "Level " << i << " has runs: " << level.size() << std::endl;
-    long sum = 0;
-    for (int j = 0; j < level.size(); j++) {
-      sum += level[j]->file_size;
-    }
-    result.push_back(sum);
+std::vector<std::vector<long>> Version::GetBytesPerRun() {
+  std::vector<std::vector<long>> result(config::kNumLevels);
+  for(int i = 0; i < files_[0].size(); i++) {
+    result[0].push_back(files_[0][i]->file_size);
+  }
+
+  for(int i = 1; i < config::kNumLevels; i++) {
+    result[i].push_back(vset_->NumLevelBytes(i));
   }
   return result;
-  
 }
 std::vector<FileMetaData *> Version::GetAllFiles() {
   std::vector<FileMetaData*> result;
