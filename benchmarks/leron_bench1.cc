@@ -122,11 +122,14 @@ int main(int argc, char** argv) {
   
   leveldb::Options options;
 
+  std::vector<int> leveling_factors{10, 10, 2,2,2,2,2,}; // first number is ignored
+
   // other options to set:
   options.block_size = 4 * 1024;
   options.compression = leveldb::kNoCompression;
+  options.leveling_factors = leveling_factors;
   int key_size = 1024;
-  int num_megabytes_to_write = 1024;
+  int num_megabytes_to_write = 100;
   int bits_per_entry_filter = 1;
 
 
@@ -149,6 +152,8 @@ int main(int argc, char** argv) {
       std::cout << "Database seeding complete." << std::endl;
     }
   }
+
+  // db->CompactLevel0Files();
 
   //reopen db for bloom filter sizes
   delete db;

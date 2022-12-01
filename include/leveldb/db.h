@@ -103,6 +103,7 @@ class LEVELDB_EXPORT DB {
   virtual const Snapshot* GetSnapshot() = 0;
   virtual std::vector<std::vector<long>> GetBytesPerRun() = 0;
   virtual int ForceFilters() = 0;
+  virtual int CompactLevel0Files() = 0;
 
   // Release a previously acquired snapshot.  The caller must not
   // use "snapshot" after this call.

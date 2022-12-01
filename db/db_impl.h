@@ -52,6 +52,7 @@ class DBImpl : public DB {
   std::vector<std::vector<long>> GetBytesPerRun() override;
   int ForceFilters() override;
   int RewriteTable(FileMetaData* old_meta, VersionEdit* edit, Version* base);
+  int CompactLevel0Files() override;
 
   // Extra methods (for testing) that are not in the public DB interface
 

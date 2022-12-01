@@ -8,6 +8,7 @@
 #include <cstddef>
 
 #include "leveldb/export.h"
+#include <vector>
 
 namespace leveldb {
 
@@ -113,6 +114,8 @@ struct LEVELDB_EXPORT Options {
   // Another reason to increase this parameter might be when you are
   // initially populating a large database.
   size_t max_file_size = 2 * 1024 * 1024;
+
+  std::vector<int> leveling_factors;
 
   // Compress blocks using the specified compression algorithm.  This
   // parameter can be changed dynamically.

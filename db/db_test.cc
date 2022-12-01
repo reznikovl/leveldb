@@ -2061,6 +2061,7 @@ class ModelDB : public DB {
   int ForceFilters() override {
     return 0;
   }
+  int CompactLevel0Files() override { return 0; }
   Status Delete(const WriteOptions& o, const Slice& key) override {
     return DB::Delete(o, key);
   }

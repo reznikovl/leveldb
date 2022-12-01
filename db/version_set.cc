@@ -31,6 +31,7 @@ std::vector<std::vector<long>> Version::GetBytesPerRun() {
   for(int i = 1; i < config::kNumLevels; i++) {
     result[i].push_back(vset_->NumLevelBytes(i));
   }
+
   return result;
 }
 std::vector<FileMetaData *> Version::GetAllFiles() {
@@ -62,10 +63,15 @@ static double MaxBytesForLevel(const Options* options, int level) {
   // Note: the result for level zero is not really used since we set
   // the level-0 compaction threshold based on number of files.
 
-  // Result for both level-0 and level-1
-  double result = 10. * 1048576.0;
-  while (level > 1) {
-    result *= 10;
+  // Result for level-0
+  double result = 2. * 1048576.0;
+  while (level >= 1) {
+    if (options->leveling_factors.size() == 0) {
+      result *= 10;
+    }
+    else {
+      result *= options->leveling_factors[level];
+    }
     level--;
   }
   return result;

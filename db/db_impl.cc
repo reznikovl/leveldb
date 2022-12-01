@@ -1596,5 +1596,60 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
   edit->RemoveFile(old_meta->level, old_meta->number);
   return 0;
 }
+
+int DBImpl::CompactLevel0Files() {
+  MutexLock l(&mutex_);
+  VersionEdit edit;
+  Version* base = versions_->current();
+  
+  // std::vector<std::pair<leveldb::Slice, leveldb::Slice> > key_value_pairs;
+  std::vector<Iterator *> iterators;
+  auto files = base->GetAllFiles();
+  std::vector<uint64_t> level_0_numbers;
+  for(auto file : files) {
+    if (file->level == 0) {
+      pending_outputs_.insert(file->number);
+      Iterator* iter = table_cache_->NewIterator(ReadOptions(), file->number, file->file_size);
+      // for (; iter->Valid(); iter->Next()) {
+      //   key_value_pairs.push_back({iter->key(), iter->value()});
+      // }
+      iterators.push_back(iter);
+      level_0_numbers.push_back(file->number);
+    }
+  }
+
+  Iterator* new_it = NewMergingIterator(user_comparator(), &iterators[0], iterators.size());
+
+  FileMetaData meta;
+  meta.level = 0;
+  meta.number = versions_->NewFileNumber();
+  Status s = BuildTable(dbname_, env_, options_, table_cache_, new_it, &meta);
+
+  edit.AddFile(0, meta.number, meta.file_size, meta.smallest, meta.largest);
+  for(auto file_num : level_0_numbers) {
+    edit.RemoveFile(0, file_num);
+  }
+
+  s = versions_->LogAndApply(&edit, &mutex_);
+  if (s.ok()) {
+    RemoveObsoleteFiles();
+  } else {
+    std::cout << "problem" << std::endl;
+  }
+  delete new_it;
+  pending_outputs_.erase(meta.number);
+
+  return 0;
+
+  // const leveldb::Comparator *comparator = user_comparator();
+  // std::sort(key_value_pairs.begin(), key_value_pairs.end(),
+  //           [comparator](const std::pair<leveldb::Slice, leveldb::Slice>& lhs,
+  //                        const std::pair<leveldb::Slice, leveldb::Slice>& rhs) {
+  //             return comparator->Compare(lhs.first, rhs.first) <= 0;
+  //           });
+  // }
+
+return 0;
+}
 }
  // namespace leveldb
