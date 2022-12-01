@@ -1618,7 +1618,8 @@ int DBImpl::CompactLevel0Files() {
     }
   }
 
-  Iterator* new_it = NewMergingIterator(user_comparator(), &iterators[0], iterators.size());
+  Iterator* new_it = NewMergingIterator(&internal_comparator_, &iterators[0],
+                                        iterators.size());
 
   FileMetaData meta;
   meta.level = 0;
