@@ -127,7 +127,6 @@ int main(int argc, char** argv) {
   // other options to set:
   options.block_size = 4 * 1024;
   options.compression = leveldb::kNoCompression;
-  options.leveling_factors = leveling_factors;
   int key_size = 1024;
   int num_megabytes_to_write = 1024;
   int bits_per_entry_filter = 1;
@@ -141,6 +140,7 @@ int main(int argc, char** argv) {
   options.create_if_missing = true;
   
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  db->SetLevelingFactors(leveling_factors);
 
   if (seed_database) {
     std::cout << "Seeding database..." << std::endl;

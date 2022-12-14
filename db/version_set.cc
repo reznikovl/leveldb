@@ -66,11 +66,11 @@ static double MaxBytesForLevel(const Options* options, int level) {
   // Result for level-0
   double result = 2. * 1048576.0;
   while (level >= 1) {
-    if (options->leveling_factors.size() == 0) {
+    if (config::leveling_factors.size() == 0) {
       result *= 10;
     }
     else {
-      result *= options->leveling_factors[level];
+      result *= config::leveling_factors[level];
     }
     level--;
   }
@@ -345,6 +345,16 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
       }
     }
   }
+}
+
+uint8_t Version::GetMaxLevel() {
+  uint8_t result = 0;
+  for(auto level : files_) {
+    if (!level.empty()) {
+      result++;
+    }
+  }
+  return result;
 }
 
 Status Version::Get(const ReadOptions& options, const LookupKey& k,

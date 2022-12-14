@@ -1601,8 +1601,7 @@ int DBImpl::SetLevelingFactors(std::vector<int> factors) {
   if(factors.size() != config::kNumLevels) {
     return -1;
   }
-  options_.leveling_factors[0] = 0;
-  // options_.leveling_factors = factors;
+  config::leveling_factors = factors;
   return 0;
 }
 
@@ -1660,6 +1659,11 @@ int DBImpl::CompactLevel0Files() {
   // }
 
 return 0;
+}
+
+uint8_t DBImpl::GetMaxLevel() {
+  MutexLock l(&mutex_);
+  return versions_->current()->GetMaxLevel();
 }
 }
  // namespace leveldb

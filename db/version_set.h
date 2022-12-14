@@ -106,6 +106,7 @@ class Version {
 
   std::vector<std::vector<long>> GetBytesPerRun();
   std::vector<FileMetaData*> GetAllFiles();
+  uint8_t GetMaxLevel();
 
   // Return the level at which we should place a new memtable compaction
   // result that covers the range [smallest_user_key,largest_user_key].

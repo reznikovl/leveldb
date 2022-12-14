@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "leveldb/comparator.h"
 #include "leveldb/db.h"
@@ -23,6 +24,9 @@ namespace leveldb {
 // parameters set via options.
 namespace config {
 static const int kNumLevels = 7;
+
+static int levels_in_use = 0;
+static std::vector<int> leveling_factors = {};
 
 // Level-0 compaction is started when we hit this many files.
 static const int kL0_CompactionTrigger = 4;

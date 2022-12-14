@@ -130,6 +130,8 @@ class LEVELDB_EXPORT DB {
    */
   virtual int SetLevelingFactors(std::vector<int> factors) = 0;
 
+  virtual uint8_t GetMaxLevel() = 0;
+
   // Release a previously acquired snapshot.  The caller must not
   // use "snapshot" after this call.
   virtual void ReleaseSnapshot(const Snapshot* snapshot) = 0;
