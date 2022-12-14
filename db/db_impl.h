@@ -51,6 +51,7 @@ class DBImpl : public DB {
   void CompactRange(const Slice* begin, const Slice* end) override;
   std::vector<std::vector<long>> GetBytesPerRun() override;
   int ForceFilters() override;
+  int SetLevelingFactors(std::vector<int> factors) override;
   int RewriteTable(FileMetaData* old_meta, VersionEdit* edit, Version* base);
   int CompactLevel0Files() override;
 
@@ -164,7 +165,7 @@ class DBImpl : public DB {
   Env* const env_;
   const InternalKeyComparator internal_comparator_;
   const InternalFilterPolicy internal_filter_policy_;
-  const Options options_;  // options_.comparator == &internal_comparator_
+  Options options_;  // options_.comparator == &internal_comparator_
   const bool owns_info_log_;
   const bool owns_cache_;
   const std::string dbname_;

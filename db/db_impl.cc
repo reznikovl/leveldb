@@ -1597,6 +1597,15 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
   return 0;
 }
 
+int DBImpl::SetLevelingFactors(std::vector<int> factors) {
+  if(factors.size() != config::kNumLevels) {
+    return -1;
+  }
+  options_.leveling_factors[0] = 0;
+  // options_.leveling_factors = factors;
+  return 0;
+}
+
 int DBImpl::CompactLevel0Files() {
   MutexLock l(&mutex_);
   VersionEdit edit;

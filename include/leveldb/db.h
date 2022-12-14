@@ -101,9 +101,34 @@ class LEVELDB_EXPORT DB {
   // state.  The caller must call ReleaseSnapshot(result) when the
   // snapshot is no longer needed.
   virtual const Snapshot* GetSnapshot() = 0;
+
+  /**
+   * Can be used online
+   * @brief Get the num bytes per run
+   *
+   * @return std::vector<std::vector<long>> where each vector is a level, and each subvector 
+   */
   virtual std::vector<std::vector<long>> GetBytesPerRun() = 0;
+
+  /**
+   * USE OFFLINE (clean database start with no ongoing activity) ONLY!
+   * @brief forces the given filter on all runs
+   * @return std::vector<std::vector<long>>
+   */
   virtual int ForceFilters() = 0;
+
+  /**
+   * USE OFFLINE (clean database start with no ongoing activity) ONLY!
+   * @brief merges all level 0 files into one single sorted run
+   * @return status
+   */
   virtual int CompactLevel0Files() = 0;
+
+  /**
+   * @brief Sets the leveling factors
+   * 
+   */
+  virtual int SetLevelingFactors(std::vector<int> factors) = 0;
 
   // Release a previously acquired snapshot.  The caller must not
   // use "snapshot" after this call.

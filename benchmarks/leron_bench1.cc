@@ -129,7 +129,7 @@ int main(int argc, char** argv) {
   options.compression = leveldb::kNoCompression;
   options.leveling_factors = leveling_factors;
   int key_size = 1024;
-  int num_megabytes_to_write = 100;
+  int num_megabytes_to_write = 1024;
   int bits_per_entry_filter = 1;
 
 
@@ -153,11 +153,12 @@ int main(int argc, char** argv) {
     }
   }
 
-  // db->CompactLevel0Files();
+  
 
   //reopen db for bloom filter sizes
   delete db;
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  db->CompactLevel0Files();
   std::cout << "Calculating bloom filters..." << std::endl;
 
   std::vector<std::vector<long>> bytes_per_level_with_zeros = db->GetBytesPerRun();
