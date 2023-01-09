@@ -27,6 +27,14 @@ double TrySwitch(long& run1_entries, long& run1_bits, long& run2_entries,
   }
 }
 
+/**
+ * @brief Runs Algorithm C from the Monkey paper
+ * 
+ * @param entries_per_level vector of (unadjusted) approximate number of entries seen per level
+ * @param key_size size of the keys in bytes
+ * @param bits_per_entry_equivalent average bits per key to use for bloom filters
+ * @return std::vector<long> optimal bloom filter allocation according to Monkey
+ */
 std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
                                   int key_size, int bits_per_entry_equivalent) {
   long total_entries = 0;
@@ -82,8 +90,17 @@ std::string gen_random(const int len) {
   return tmp_s;
 }
 
+
+/**
+ * @brief Writes approximately the given number of megabytes of data
+ * 
+ * @param db database to write to
+ * @param num_megabytes how many megabytes to write
+ * @param key_size what size key to generate (in bytes)
+ * @return int 0 if successful, -1 otherwise
+ */
 int write_data(leveldb::DB* db, int num_megabytes, int key_size) {
-  for (int i = 0; i < num_megabytes * 1024; i++) {
+  for (int i = 0; i < num_megabytes * (1024*1024/key_size); i++) {
     std::string value = gen_random(key_size);
     leveldb::Status status =
         db->Put(leveldb::WriteOptions(), leveldb::Slice(value), "");
@@ -96,6 +113,11 @@ int write_data(leveldb::DB* db, int num_megabytes, int key_size) {
   return 0;
 }
 
+/**
+ * @brief Reads num_entries entries of key size key_size
+ * 
+ * @return 0 if successful, -1 otherwise
+ */
 int read_data(leveldb::DB* db, int num_entries, int key_size) {
   for (int i = 0; i < num_entries; i++) {
     std::string value = gen_random(key_size);
@@ -122,13 +144,13 @@ int main(int argc, char** argv) {
   
   leveldb::Options options;
 
-  std::vector<int> leveling_factors{10, 10, 2,2,2,2,2,}; // first number is ignored
+  std::vector<int> leveling_factors{10, 10, 1,1,1,1,1,}; // first number is ignored
 
   // other options to set:
   options.block_size = 4 * 1024;
-  options.compression = leveldb::kNoCompression;
+  options.compression = leveldb::kNoCompression; //changing compression will require alternate implementation of entries per level
   int key_size = 1024;
-  int num_megabytes_to_write = 1024;
+  int num_megabytes_to_write = 512;
   int bits_per_entry_filter = 1;
 
 
@@ -162,6 +184,7 @@ int main(int argc, char** argv) {
   std::cout << "Calculating bloom filters..." << std::endl;
 
   std::vector<std::vector<long>> bytes_per_level_with_zeros = db->GetBytesPerRun();
+  delete db;
   std::vector<long> entries_per_run;
   for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
     if (bytes_per_level_with_zeros[i].size() == 0) {
@@ -201,7 +224,6 @@ int main(int argc, char** argv) {
     }
   }          
 
-  delete db;
   options.filter_policy = leveldb::NewBloomFilterPolicy(bits_per_key_per_level);
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
   std::cout << "Forcing filters" << std::endl;

@@ -1598,11 +1598,7 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
 }
 
 int DBImpl::SetLevelingFactors(std::vector<int> factors) {
-  if(factors.size() != config::kNumLevels) {
-    return -1;
-  }
-  config::leveling_factors = factors;
-  return 0;
+  return VersionSet::SetLevelingFactors(factors);
 }
 
 int DBImpl::CompactLevel0Files() {

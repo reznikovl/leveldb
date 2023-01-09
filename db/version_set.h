@@ -175,6 +175,9 @@ class VersionSet {
   VersionSet(const VersionSet&) = delete;
   VersionSet& operator=(const VersionSet&) = delete;
 
+  static int SetLevelingFactors(std::vector<int> leveling_factors);
+  static std::vector<int> GetLevelingFactors();
+
   ~VersionSet();
 
   // Apply *edit to the current version to form a new descriptor that
@@ -274,6 +277,7 @@ class VersionSet {
   const char* LevelSummary(LevelSummaryStorage* scratch) const;
 
  private:
+  static std::vector<int> leveling_factors_;
   class Builder;
 
   friend class Compaction;

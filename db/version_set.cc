@@ -65,12 +65,12 @@ static double MaxBytesForLevel(const Options* options, int level) {
 
   // Result for level-0
   double result = 2. * 1048576.0;
+  std::vector<int> leveling_factors = VersionSet::GetLevelingFactors();
   while (level >= 1) {
-    if (config::leveling_factors.size() == 0) {
+    if (leveling_factors.size() == 0) {
       result *= 10;
-    }
-    else {
-      result *= config::leveling_factors[level];
+    } else {
+      result *= leveling_factors[level];
     }
     level--;
   }
@@ -766,6 +766,20 @@ class VersionSet::Builder {
     }
   }
 };
+
+std::vector<int> VersionSet::leveling_factors_ = {};
+int VersionSet::SetLevelingFactors(std::vector<int> leveling_factors) {
+  if (leveling_factors.size() != config::kNumLevels) {
+    return -1;
+  }
+  VersionSet::leveling_factors_ = leveling_factors;
+  return 0;
+}
+
+std::vector<int> VersionSet::GetLevelingFactors() {
+  return VersionSet::leveling_factors_;
+}
+
 
 VersionSet::VersionSet(const std::string& dbname, const Options* options,
                        TableCache* table_cache,
