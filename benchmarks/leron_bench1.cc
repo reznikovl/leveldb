@@ -63,7 +63,7 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
                           runs_bits[i], delta, R_new);
       }
     }
-    if (R_new == R) {
+    if (abs(R_new - R) < 0.000001) { // fixed float error
       delta /= 2;
     }
     R = R_new;
