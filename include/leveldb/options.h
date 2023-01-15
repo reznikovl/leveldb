@@ -35,6 +35,13 @@ struct LEVELDB_EXPORT Options {
   // Create an Options object with default values for all fields.
   Options();
 
+  // how much bigger a level is than its predecessor. The base is used for how much bigger the last level is than the second to last.
+  int base_scaling_factor = 4;
+
+  // how much the leveling factor changes on adjacent level. If the base factor is 24 and ratio_diff is 2/3, then the ration between level 0 and 1 is 24, between 1 and 2 is 16, and between 2 and 3 is 10.
+  double ratio_diff = 2.0/3;
+
+
   // -------------------
   // Parameters that affect behavior
 

@@ -136,6 +136,22 @@ int read_data(leveldb::DB* db, int num_entries, int key_size) {
   return 0;
 }
 
+/**
+ * @brief Reads num_entries entries of key size key_size
+ *
+ * @return 0 if successful, -1 otherwise
+ */
+std::vector<std::pair<leveldb::Slice, std::string>> read_range(leveldb::DB* db, int num_entries, int key_size, leveldb::Slice v1, leveldb::Slice v2) {
+  std::vector<std::pair<leveldb::Slice, std::string>> result;
+  leveldb::Status status =
+      db->GetRange(leveldb::ReadOptions(), v1, v2, &result);
+  if (!(status.ok())) {
+    std::cout << "oops" << std::endl;
+    std::cout << status.ToString();
+  }
+  return result;
+}
+
 int main(int argc, char** argv) {
   if (argc != 3) {
     std::cout << "Usage: ./leron_bench1 SEED_DATABASE USE_MONKEY where VARS are each either 1 or 0." << std::endl;
@@ -144,14 +160,15 @@ int main(int argc, char** argv) {
   
   leveldb::Options options;
 
-  std::vector<int> leveling_factors{10, 10, 1,1,1,1,1,}; // first number is ignored
+  options.base_scaling_factor = 4;
+  options.ratio_diff = 2.0/3.0;
 
   // other options to set:
   options.block_size = 4 * 1024;
   options.compression = leveldb::kNoCompression; //changing compression will require alternate implementation of entries per level
-  int key_size = 1024;
+  int key_size = 128;
   int num_megabytes_to_write = 512;
-  int bits_per_entry_filter = 1;
+  int bits_per_entry_filter = 2;
 
 
 
@@ -162,16 +179,20 @@ int main(int argc, char** argv) {
   options.create_if_missing = true;
   
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
-  db->SetLevelingFactors(leveling_factors);
-
   if (seed_database) {
     std::cout << "Seeding database..." << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
     int status = write_data(db, num_megabytes_to_write, key_size);
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+    
     if (status != 0) {
       std::cout << "Error seeding database." << std::endl;
       return -1;
     } else {
       std::cout << "Database seeding complete." << std::endl;
+      std::cout << "Time to seed db: " << duration.count() << " ms" << std::endl;
     }
   }
 
@@ -187,6 +208,10 @@ int main(int argc, char** argv) {
   delete db;
   std::vector<long> entries_per_run;
   for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
+    for(int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
+      std::cout << "Level " << i << " run " << j << " size: " << bytes_per_level_with_zeros[i][j];
+    }
+    
     if (bytes_per_level_with_zeros[i].size() == 0) {
       break;
     }

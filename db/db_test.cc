@@ -2061,9 +2061,6 @@ class ModelDB : public DB {
   int ForceFilters() override {
     return 0;
   }
-  int SetLevelingFactors(std::vector<int> factors) override {
-    return 0;
-  }
   uint8_t GetMaxLevel() override { return 0; }
   int CompactLevel0Files() override { return 0; }
   Status Delete(const WriteOptions& o, const Slice& key) override {

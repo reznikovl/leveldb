@@ -18,6 +18,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <cmath>
 
 #include "db/dbformat.h"
 #include "db/version_edit.h"
@@ -174,9 +175,6 @@ class VersionSet {
              TableCache* table_cache, const InternalKeyComparator*);
   VersionSet(const VersionSet&) = delete;
   VersionSet& operator=(const VersionSet&) = delete;
-
-  static int SetLevelingFactors(std::vector<int> leveling_factors);
-  static std::vector<int> GetLevelingFactors();
 
   ~VersionSet();
 

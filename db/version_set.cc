@@ -59,19 +59,15 @@ static int64_t ExpandedCompactionByteSizeLimit(const Options* options) {
   return 25 * TargetFileSize(options);
 }
 
-static double MaxBytesForLevel(const Options* options, int level) {
+static double MaxBytesForLevel(const Options* options, int level, int max_level_in_use) {
   // Note: the result for level zero is not really used since we set
   // the level-0 compaction threshold based on number of files.
 
   // Result for level-0
-  double result = 2. * 1048576.0;
-  std::vector<int> leveling_factors = VersionSet::GetLevelingFactors();
+  double result = 10. * 1048576.0;
   while (level >= 1) {
-    if (leveling_factors.size() == 0) {
-      result *= 10;
-    } else {
-      result *= leveling_factors[level];
-    }
+    double factor = options->base_scaling_factor * pow(options->ratio_diff, -1 * (max_level_in_use - level));
+    result *= factor;
     level--;
   }
   return result;
@@ -767,19 +763,6 @@ class VersionSet::Builder {
   }
 };
 
-std::vector<int> VersionSet::leveling_factors_ = {};
-int VersionSet::SetLevelingFactors(std::vector<int> leveling_factors) {
-  if (leveling_factors.size() != config::kNumLevels) {
-    return -1;
-  }
-  VersionSet::leveling_factors_ = leveling_factors;
-  return 0;
-}
-
-std::vector<int> VersionSet::GetLevelingFactors() {
-  return VersionSet::leveling_factors_;
-}
-
 
 VersionSet::VersionSet(const std::string& dbname, const Options* options,
                        TableCache* table_cache,
@@ -1083,6 +1066,16 @@ void VersionSet::Finalize(Version* v) {
   // Precomputed best level for next compaction
   int best_level = -1;
   double best_score = -1;
+  int max_level_in_use = -1;
+  for(int level = 0; level < config::kNumLevels - 1; level++) {
+    if(v->files_[level].empty()) {
+      max_level_in_use = level - 1;
+      break;
+    }
+  }
+  if (max_level_in_use == -1) {
+    max_level_in_use = config::kNumLevels - 1;
+  }
 
   for (int level = 0; level < config::kNumLevels - 1; level++) {
     double score;
@@ -1104,7 +1097,7 @@ void VersionSet::Finalize(Version* v) {
       // Compute the ratio of current size to size limit.
       const uint64_t level_bytes = TotalFileSize(v->files_[level]);
       score =
-          static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level);
+          static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level, max_level_in_use);
     }
 
     if (score > best_score) {

@@ -127,12 +127,6 @@ class LEVELDB_EXPORT DB {
    */
   virtual int CompactLevel0Files() = 0;
 
-  /**
-   * @brief Sets the leveling factors
-   * 
-   */
-  virtual int SetLevelingFactors(std::vector<int> factors) = 0;
-
   virtual uint8_t GetMaxLevel() = 0;
 
   // Release a previously acquired snapshot.  The caller must not
