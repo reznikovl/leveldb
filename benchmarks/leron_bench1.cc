@@ -201,7 +201,7 @@ int main(int argc, char** argv) {
   std::cout << "Calculating bloom filters..." << std::endl;
 
   std::vector<std::vector<long>> bytes_per_level_with_zeros = db->GetBytesPerRun();
-  sleep(5);
+  sleep(10);
   delete db;
   std::vector<long> entries_per_run;
   for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
@@ -248,10 +248,10 @@ int main(int argc, char** argv) {
 
   options.filter_policy = leveldb::NewBloomFilterPolicy(bits_per_key_per_level);
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
-  sleep(5);
+  sleep(10);
   std::cout << "Forcing filters" << std::endl;
   db->ForceFilters();
-  sleep(5);
+  sleep(10);
   for (int i = 0; i < bits_per_key_per_level.size(); i++) {
     std::cout << "Level " << i << " bits per key is "
               << bits_per_key_per_level[i] << std::endl;
