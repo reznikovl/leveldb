@@ -4,15 +4,12 @@
 #include <time.h>
 #include <unistd.h>
 
-
 #include "leveldb/db.h"
 #include "leveldb/filter_policy.h"
-
 
 double eval(long run_bits, long runs_entries) {
   return std::exp(run_bits / runs_entries * std::pow(std::log(2), 2) * -1);
 }
-
 
 double TrySwitch(long& run1_entries, long& run1_bits, long& run2_entries,
                  long& run2_bits, long delta, double R) {
@@ -20,7 +17,6 @@ double TrySwitch(long& run1_entries, long& run1_bits, long& run2_entries,
                  eval(run2_bits, run2_entries) +
                  eval(run1_bits + delta, run1_entries) +
                  eval(run2_bits - delta, run2_entries);
-
 
   if (R_new < R && run2_bits - delta > 0) {
     run1_bits += delta;
@@ -31,13 +27,14 @@ double TrySwitch(long& run1_entries, long& run1_bits, long& run2_entries,
   }
 }
 
-
 /**
  * @brief Runs Algorithm C from the Monkey paper
- * 
- * @param entries_per_level vector of (unadjusted) approximate number of entries seen per level
+ *
+ * @param entries_per_level vector of (unadjusted) approximate number of entries
+ * seen per level
  * @param key_size size of the keys in bytes
- * @param bits_per_entry_equivalent average bits per key to use for bloom filters
+ * @param bits_per_entry_equivalent average bits per key to use for bloom
+ * filters
  * @return std::vector<long> optimal bloom filter allocation according to Monkey
  */
 std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
@@ -48,7 +45,8 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
   }
   std::cout << "Total bytes found is " << total_entries * key_size << std::endl;
   long delta = total_entries * bits_per_entry_equivalent * 0.9;
-  std::cout << "Adjusting for metadata, approx number of entries is " << delta / bits_per_entry_equivalent << std::endl;
+  std::cout << "Adjusting for metadata, approx number of entries is "
+            << delta / bits_per_entry_equivalent << std::endl;
   std::vector<long> runs_entries;
   std::vector<long> runs_bits;
   for (long i = 0; i < entries_per_level.size(); i++) {
@@ -57,7 +55,6 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
   }
   runs_bits[0] = delta;
   double R = runs_entries.size() - 1 + eval(runs_bits[0], runs_entries[0]);
-
 
   while (delta >= 1) {
     double R_new = R;
@@ -69,7 +66,7 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
                           runs_bits[i], delta, R_new);
       }
     }
-    if (abs(R_new - R) < 0.000001) { // fixed float error
+    if (abs(R_new - R) < 0.000001) {  // fixed float error
       delta /= 2;
     }
     R = R_new;
@@ -81,37 +78,29 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
   return result;
 }
 
-
 std::string gen_random(const int len) {
   static const char alphanum[] =
-      "0123456789"
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "abcdefghijklmnopqrstuvwxyz";
   std::string tmp_s;
   tmp_s.reserve(len);
-
 
   for (int i = 0; i < len; ++i) {
     tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
   }
 
-
   return tmp_s;
 }
 
-
-
-
 /**
  * @brief Writes approximately the given number of megabytes of data
- * 
+ *
  * @param db database to write to
  * @param num_megabytes how many megabytes to write
  * @param key_size what size key to generate (in bytes)
  * @return int 0 if successful, -1 otherwise
  */
 int write_data(leveldb::DB* db, int num_megabytes, int key_size) {
-  for (int i = 0; i < num_megabytes * (1024*1024/key_size); i++) {
+  for (int i = 0; i < num_megabytes * (1024 * 1024 / key_size); i++) {
     std::string value = gen_random(key_size);
     leveldb::Status status =
         db->Put(leveldb::WriteOptions(), leveldb::Slice(value), "");
@@ -124,10 +113,9 @@ int write_data(leveldb::DB* db, int num_megabytes, int key_size) {
   return 0;
 }
 
-
 /**
  * @brief Reads num_entries entries of key size key_size
- * 
+ *
  * @return 0 if successful, -1 otherwise
  */
 int read_data(leveldb::DB* db, int num_entries, int key_size) {
@@ -148,9 +136,6 @@ int read_data(leveldb::DB* db, int num_entries, int key_size) {
   return 0;
 }
 
-
-
-
 std::vector<std::pair<leveldb::Slice, std::string>> read_range(leveldb::DB* db, leveldb::Slice v1, leveldb::Slice v2) {
   std::vector<std::pair<leveldb::Slice, std::string>> result;
   leveldb::Status status =
@@ -162,32 +147,27 @@ std::vector<std::pair<leveldb::Slice, std::string>> read_range(leveldb::DB* db, 
   return result;
 }
 
-
 int main(int argc, char** argv) {
   if (argc != 3) {
-    std::cout << "Usage: ./leron_bench1 SEED_DATABASE USE_MONKEY where VARS are each either 1 or 0." << std::endl;
+    std::cout << "Usage: ./leron_bench1 SEED_DATABASE USE_MONKEY where VARS "
+                 "are each either 1 or 0."
+              << std::endl;
     return -1;
   }
 
-
   leveldb::Options options;
 
-
   options.base_scaling_factor = 4;
-  options.ratio_diff = 2.0/3.0;
-
+  options.ratio_diff = 2.0 / 3.0;
 
   // other options to set:
   options.block_size = 4 * 1024;
-  options.compression = leveldb::kNoCompression; //changing compression will require alternate implementation of entries per level
-  int key_size = 128;
-  int num_megabytes_to_write = 1;
+  options.compression =
+      leveldb::kNoCompression;  // changing compression will require alternate
+                                // implementation of entries per level
+  int key_size = 1024;
+  int num_megabytes_to_write = 512;
   int bits_per_entry_filter = 2;
-
-
-
-
-
 
   bool seed_database = strcmp(argv[1], "1") == 0;
   bool use_monkey = strcmp(argv[2], "1") == 0;
@@ -203,87 +183,73 @@ int main(int argc, char** argv) {
     int status = write_data(db, num_megabytes_to_write, key_size);
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration =
-      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-
+        std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
 
     if (status != 0) {
       std::cout << "Error seeding database." << std::endl;
       return -1;
     } else {
       std::cout << "Database seeding complete." << std::endl;
-      std::cout << "Time to seed db: " << duration.count() << " ms" << std::endl;
+      std::cout << "Time to seed db: " << duration.count() << " ms"
+                << std::endl;
     }
   }
 
-
-
-
-
-
-  //reopen db for bloom filter sizes
-  // delete db;
-  // status = leveldb::DB::Open(options, filename, &db);
   sleep(10);
   db->CompactLevel0Files();
   std::cout << "Calculating bloom filters..." << std::endl;
 
-
-  std::vector<std::vector<long>> bytes_per_level_with_zeros = db->GetBytesPerRun();
+  std::vector<std::vector<long>> bytes_per_level_with_zeros =
+      db->GetBytesPerRun();
   sleep(10);
-  // delete db;
+  delete db;
   std::vector<long> entries_per_run;
   for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
-    for(int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
-      std::cout << "Level " << i << " run " << j << " size: " << bytes_per_level_with_zeros[i][j] << std::endl;
+    for (int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
+      std::cout << "Level " << i << " run " << j
+                << " size: " << bytes_per_level_with_zeros[i][j] << std::endl;
     }
-
 
     if (bytes_per_level_with_zeros[i].size() == 0) {
       break;
     }
 
-
-    for(int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
+    for (int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
       entries_per_run.push_back(bytes_per_level_with_zeros[i][j] / key_size);
     }
   }
 
-
   std::vector<int> bits_per_key_per_level;
 
-
   if (use_monkey) {
-    std::cout << "Allocating bloom filters based on Monkey algo..." << std::endl;
+    std::cout << "Allocating bloom filters based on Monkey algo..."
+              << std::endl;
     std::vector<long> bits_per_key_per_run =
         run_algorithm_c(entries_per_run, key_size, bits_per_entry_filter);
-
 
     // average filter size over all level 0 files
     int level0_allocated_bits = 0;
     int num_level0_runs = bytes_per_level_with_zeros[0].size();
-
 
     for (int i = 0; i < num_level0_runs; i++) {
       level0_allocated_bits += bits_per_key_per_run[i];
     }
     bits_per_key_per_level.push_back(level0_allocated_bits / num_level0_runs);
 
-
     // rest of the levels have one level per run
     bits_per_key_per_level.insert(
         bits_per_key_per_level.end(),
-        bits_per_key_per_run.begin() + num_level0_runs, bits_per_key_per_run.end());
-  }
-  else {
+        bits_per_key_per_run.begin() + num_level0_runs,
+        bits_per_key_per_run.end());
+  } else {
     // make vector with just bits per entry
     for (int i = 0; i < 7; i++) {
       bits_per_key_per_level.push_back(bits_per_entry_filter);
     }
-  }          
-
+  }
 
   options.filter_policy = leveldb::NewBloomFilterPolicy(bits_per_key_per_level);
-  // status = leveldb::DB::Open(options, filename, &db);
+  status = leveldb::DB::Open(options, filename, &db);
   sleep(10);
   std::cout << "Forcing filters" << std::endl;
   db->ForceFilters();
@@ -297,30 +263,27 @@ int main(int argc, char** argv) {
 
   std::cout << "Reading..." << std::endl;
 
-
   auto start = std::chrono::high_resolution_clock::now();
   read_data(db, 12000, key_size);
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  std::cout << "Done point reading. Took " << duration.count() << "ms" << std::endl;
-
+  std::cout << "Done point reading. Took " << duration.count() << "ms"
+            << std::endl;
 
   start = std::chrono::high_resolution_clock::now();
   auto result = read_range(db, leveldb::Slice("C"), leveldb::Slice("D"));
   stop = std::chrono::high_resolution_clock::now();
   duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  std::cout << "Range read query done. Took " << duration.count() << "ms" << std::endl;
+  std::cout << "Range read query done. Took " << duration.count() << "ms"
+            << std::endl;
   if (result.empty()) {
     std::cout << "Nothing found..." << std::endl;
+  } else {
+    std::cout << "Read from " << result[0].first.ToString() << " to "
+              << result[result.size() - 1].first.ToString() << std::endl;
   }
-  else {
-    std::cout << "Read from " << result[0].first.ToString() << " to " << result[result.size() - 1].first.ToString() << std::endl;
-  }
-
-
-
 
   return 0;
 }

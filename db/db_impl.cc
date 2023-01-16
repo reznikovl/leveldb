@@ -1559,8 +1559,15 @@ Status DestroyDB(const std::string& dbname, const Options& options) {
   return result;
 }
 
+std::vector<std::vector<long>> DBImpl::GetBytesPerRun() {
+  MutexLock l(&mutex_);
+  Version* curr_version = versions_->current();
+  return curr_version->GetBytesPerRun();
+}
+
 int DBImpl::ForceFilters() {
   MutexLock l(&mutex_);
+  // mutex_.Lock();
   VersionEdit edit;
   Version* base = versions_->current();
   std::vector<FileMetaData*> files = base->GetAllFiles();
@@ -1569,19 +1576,15 @@ int DBImpl::ForceFilters() {
   }
   Status s = versions_->LogAndApply(&edit, &mutex_);
   if (s.ok()) {
-    RemoveObsoleteFiles();
+    // RemoveObsoleteFiles();
   } else {
     std::cout << "problem" << std::endl;
   }
+  // mutex_.Unlock();
 
   return 0;
 }
 
-std::vector<std::vector<long>> DBImpl::GetBytesPerRun() {
-  MutexLock l(&mutex_);
-  Version* curr_version = versions_->current();
-  return curr_version->GetBytesPerRun();
-}
 int DBImpl::RewriteTable(FileMetaData* old_meta, VersionEdit* edit,
                          Version* base) {
   mutex_.AssertHeld();
@@ -1592,8 +1595,16 @@ int DBImpl::RewriteTable(FileMetaData* old_meta, VersionEdit* edit,
 
   Iterator* iter = table_cache_->NewIterator(ReadOptions(), old_meta->number,
                                              old_meta->file_size);
-  Status s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+                                             
+  Status s;
+  {
+    // mutex_.Unlock();
+    s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    // mutex_.Lock();
+  }
   // delete iter;
+
+  // std::cout << "here" << std::endl;
   pending_outputs_.erase(meta.number);
   edit->AddFile(old_meta->level, meta.number, meta.file_size, meta.smallest,
                 meta.largest);
@@ -1606,7 +1617,6 @@ int DBImpl::CompactLevel0Files() {
   VersionEdit edit;
   Version* base = versions_->current();
 
-  // std::vector<std::pair<leveldb::Slice, leveldb::Slice> > key_value_pairs;
   std::vector<Iterator*> iterators;
   auto files = base->GetAllFiles();
   std::vector<uint64_t> level_0_numbers;
@@ -1630,6 +1640,10 @@ int DBImpl::CompactLevel0Files() {
   meta.level = 0;
   meta.number = versions_->NewFileNumber();
   Status s = BuildTable(dbname_, env_, options_, table_cache_, new_it, &meta);
+
+  if (!s.ok()) {
+    std::cout << "not ok after building table level 0 compaction" << std::endl;
+  }
 
   edit.AddFile(0, meta.number, meta.file_size, meta.smallest, meta.largest);
   for (auto file_num : level_0_numbers) {

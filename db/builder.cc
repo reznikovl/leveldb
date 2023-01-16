@@ -11,6 +11,7 @@
 #include "leveldb/db.h"
 #include "leveldb/env.h"
 #include "leveldb/iterator.h"
+#include <iostream>
 
 namespace leveldb {
 
@@ -53,6 +54,9 @@ Status BuildTable(const std::string& dbname, Env* env, const Options& options,
     }
     if (s.ok()) {
       s = file->Close();
+    }
+    if (!s.ok()) {
+      std::cout << "UH OH" << std::endl;
     }
     delete file;
     file = nullptr;
