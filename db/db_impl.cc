@@ -1619,7 +1619,7 @@ int DBImpl::CompactLevel0Files() {
     }
   }
 
-  Iterator* new_it = NewMergingIterator(&internal_comparator_, &iterators[0],
+  Iterator* new_it = NewMergingIterator(user_comparator(), &iterators[0],
                                         iterators.size());
 
   FileMetaData meta;
@@ -1634,7 +1634,7 @@ int DBImpl::CompactLevel0Files() {
 
   s = versions_->LogAndApply(&edit, &mutex_);
   if (s.ok()) {
-    RemoveObsoleteFiles();
+    // RemoveObsoleteFiles();
   } else {
     std::cout << "problem" << std::endl;
   }

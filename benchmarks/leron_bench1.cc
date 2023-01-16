@@ -136,12 +136,8 @@ int read_data(leveldb::DB* db, int num_entries, int key_size) {
   return 0;
 }
 
-/**
- * @brief Reads num_entries entries of key size key_size
- *
- * @return 0 if successful, -1 otherwise
- */
-std::vector<std::pair<leveldb::Slice, std::string>> read_range(leveldb::DB* db, int num_entries, int key_size, leveldb::Slice v1, leveldb::Slice v2) {
+
+std::vector<std::pair<leveldb::Slice, std::string>> read_range(leveldb::DB* db, leveldb::Slice v1, leveldb::Slice v2) {
   std::vector<std::pair<leveldb::Slice, std::string>> result;
   leveldb::Status status =
       db->GetRange(leveldb::ReadOptions(), v1, v2, &result);
@@ -209,7 +205,7 @@ int main(int argc, char** argv) {
   std::vector<long> entries_per_run;
   for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
     for(int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
-      std::cout << "Level " << i << " run " << j << " size: " << bytes_per_level_with_zeros[i][j];
+      std::cout << "Level " << i << " run " << j << " size: " << bytes_per_level_with_zeros[i][j] << std::endl;
     }
     
     if (bytes_per_level_with_zeros[i].size() == 0) {
@@ -217,7 +213,7 @@ int main(int argc, char** argv) {
     }
 
     for(int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
-      entries_per_run.push_back(bytes_per_level_with_zeros[i][j] / 1024);
+      entries_per_run.push_back(bytes_per_level_with_zeros[i][j] / key_size);
     }
   }
 
@@ -267,6 +263,21 @@ int main(int argc, char** argv) {
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  std::cout << "Done. Took " << duration.count() << "ms" << std::endl;
+  std::cout << "Done point reading. Took " << duration.count() << "ms" << std::endl;
+
+  start = std::chrono::high_resolution_clock::now();
+  auto result = read_range(db, leveldb::Slice("C"), leveldb::Slice("D"));
+  stop = std::chrono::high_resolution_clock::now();
+  duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  std::cout << "Range read query done. Took " << duration.count() << "ms" << std::endl;
+  if (result.empty()) {
+    std::cout << "Nothing found..." << std::endl;
+  }
+  else {
+    std::cout << "Read from " << result[0].first.ToString() << " to " << result[result.size() - 1].first.ToString() << std::endl;
+  }
+  
+
   return 0;
 }
