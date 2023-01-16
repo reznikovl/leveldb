@@ -1590,7 +1590,7 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
   Iterator* iter = table_cache_->NewIterator(ReadOptions(), old_meta->number,
                                              old_meta->file_size);
   Status s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
-  delete iter;
+  // delete iter;
   pending_outputs_.erase(meta.number);
   edit->AddFile(old_meta->level, meta.number, meta.file_size, meta.smallest, meta.largest);
   edit->RemoveFile(old_meta->level, old_meta->number);
