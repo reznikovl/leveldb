@@ -18,8 +18,29 @@
 #include "table/two_level_iterator.h"
 #include "util/coding.h"
 #include "util/logging.h"
+#include <cmath>
 
 namespace leveldb {
+
+std::vector<std::vector<long>> Version::GetBytesPerRun() {
+  std::vector<std::vector<long>> result(config::kNumLevels);
+  for (int i = 0; i < files_[0].size(); i++) {
+    result[0].push_back(files_[0][i]->file_size);
+  }
+
+  for (int i = 1; i < config::kNumLevels; i++) {
+    result[i].push_back(vset_->NumLevelBytes(i));
+  }
+
+  return result;
+}
+std::vector<FileMetaData*> Version::GetAllFiles() {
+  std::vector<FileMetaData*> result;
+  for (int i = 0; i < config::kNumLevels; i++) {
+    result.insert(result.end(), files_[i].begin(), files_[i].end());
+  }
+  return result;
+}
 
 static size_t TargetFileSize(const Options* options) {
   return options->max_file_size;
@@ -38,14 +59,15 @@ static int64_t ExpandedCompactionByteSizeLimit(const Options* options) {
   return 25 * TargetFileSize(options);
 }
 
-static double MaxBytesForLevel(const Options* options, int level) {
+static double MaxBytesForLevel(const Options* options, int level, int max_level_in_use) {
   // Note: the result for level zero is not really used since we set
   // the level-0 compaction threshold based on number of files.
 
   // Result for both level-0 and level-1
   double result = 10. * 1048576.0;
   while (level > 1) {
-    result *= 10;
+    double factor = options->base_scaling_factor * pow(options->ratio_diff, -1 * (max_level_in_use - level));
+    result *= factor;
     level--;
   }
   return result;
@@ -725,7 +747,9 @@ class VersionSet::Builder {
                                     f->smallest) < 0);
       }
       f->refs++;
+      f->level = level;
       files->push_back(f);
+
     }
   }
 };
@@ -1032,6 +1056,16 @@ void VersionSet::Finalize(Version* v) {
   // Precomputed best level for next compaction
   int best_level = -1;
   double best_score = -1;
+  int max_level_in_use = -1;
+  for (int level = 0; level < config::kNumLevels - 1; level++) {
+    if (v->files_[level].empty()) {
+      max_level_in_use = level - 1;
+      break;
+    }
+  }
+  if (max_level_in_use == -1) {
+    max_level_in_use = config::kNumLevels - 1;
+  }
 
   for (int level = 0; level < config::kNumLevels - 1; level++) {
     double score;
@@ -1053,7 +1087,7 @@ void VersionSet::Finalize(Version* v) {
       // Compute the ratio of current size to size limit.
       const uint64_t level_bytes = TotalFileSize(v->files_[level]);
       score =
-          static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level);
+          static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level, max_level_in_use);
     }
 
     if (score > best_score) {

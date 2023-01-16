@@ -87,6 +87,32 @@ class LEVELDB_EXPORT DB {
   virtual Status Get(const ReadOptions& options, const Slice& key,
                      std::string* value) = 0;
 
+  virtual Status GetRange(const ReadOptions& options, const Slice& start_key, const Slice& end_key,
+                     std::vector<std::pair<Slice, std::string>> *result) = 0;
+
+  /**
+   * Can be used online
+   * @brief Get the num bytes per run
+   *
+   * @return std::vector<std::vector<long>> where each vector is a level, and
+   * each subvector
+   */
+  virtual std::vector<std::vector<long>> GetBytesPerRun() = 0;
+
+  /**
+   * USE OFFLINE (clean database start with no ongoing activity) ONLY!
+   * @brief forces the given filter on all runs
+   * @return status
+   */
+  virtual int ForceFilters() = 0;
+
+  /**
+   * USE OFFLINE (clean database start with no ongoing activity) ONLY!
+   * @brief merges all level 0 files into one single sorted run
+   * @return status
+   */
+  virtual int CompactLevel0Files() = 0;
+
   // Return a heap-allocated iterator over the contents of the database.
   // The result of NewIterator() is initially invalid (caller must
   // call one of the Seek methods on the iterator before using it).

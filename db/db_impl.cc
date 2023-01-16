@@ -34,6 +34,7 @@
 #include "util/coding.h"
 #include "util/logging.h"
 #include "util/mutexlock.h"
+#include <iostream>
 
 namespace leveldb {
 
@@ -507,6 +508,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   mutex_.AssertHeld();
   const uint64_t start_micros = env_->NowMicros();
   FileMetaData meta;
+  meta.level = 0;
   meta.number = versions_->NewFileNumber();
   pending_outputs_.insert(meta.number);
   Iterator* iter = mem->NewIterator();
@@ -538,6 +540,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     edit->AddFile(level, meta.number, meta.file_size, meta.smallest,
                   meta.largest);
   }
+  meta.level = level; //useless?
 
   CompactionStats stats;
   stats.micros = env_->NowMicros() - start_micros;
@@ -817,7 +820,7 @@ Status DBImpl::OpenCompactionOutputFile(CompactionState* compact) {
   std::string fname = TableFileName(dbname_, file_number);
   Status s = env_->NewWritableFile(fname, &compact->outfile);
   if (s.ok()) {
-    compact->builder = new TableBuilder(options_, compact->outfile);
+    compact->builder = new TableBuilder(options_, compact->outfile, compact->compaction->level() + 1);
   }
   return s;
 }
@@ -1150,9 +1153,9 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     mutex_.Lock();
   }
 
-  if (have_stat_update && current->UpdateStats(stats)) {
-    MaybeScheduleCompaction();
-  }
+  // if (have_stat_update && current->UpdateStats(stats)) {
+  //   MaybeScheduleCompaction();
+  // }
   mem->Unref();
   if (imm != nullptr) imm->Unref();
   current->Unref();
@@ -1173,9 +1176,9 @@ Iterator* DBImpl::NewIterator(const ReadOptions& options) {
 
 void DBImpl::RecordReadSample(Slice key) {
   MutexLock l(&mutex_);
-  if (versions_->current()->RecordReadSample(key)) {
-    MaybeScheduleCompaction();
-  }
+  // if (versions_->current()->RecordReadSample(key)) {
+  //   MaybeScheduleCompaction();
+  // }
 }
 
 const Snapshot* DBImpl::GetSnapshot() {
@@ -1511,7 +1514,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   }
   if (s.ok()) {
     impl->RemoveObsoleteFiles();
-    impl->MaybeScheduleCompaction();
+    // impl->MaybeScheduleCompaction();
   }
   impl->mutex_.Unlock();
   if (s.ok()) {
@@ -1554,6 +1557,121 @@ Status DestroyDB(const std::string& dbname, const Options& options) {
     env->RemoveDir(dbname);  // Ignore error in case dir contains other files
   }
   return result;
+}
+
+int DBImpl::ForceFilters() {
+  MutexLock l(&mutex_);
+  VersionEdit edit;
+  Version* base = versions_->current();
+  std::vector<FileMetaData*> files = base->GetAllFiles();
+  for (int i = 0; i < files.size(); i++) {
+    RewriteTable(files[i], &edit, base);
+  }
+  Status s = versions_->LogAndApply(&edit, &mutex_);
+  if (s.ok()) {
+    RemoveObsoleteFiles();
+  } else {
+    std::cout << "problem" << std::endl;
+  }
+
+  return 0;
+}
+
+std::vector<std::vector<long>> DBImpl::GetBytesPerRun() {
+  MutexLock l(&mutex_);
+  Version* curr_version = versions_->current();
+  return curr_version->GetBytesPerRun();
+}
+int DBImpl::RewriteTable(FileMetaData* old_meta, VersionEdit* edit,
+                         Version* base) {
+  mutex_.AssertHeld();
+  FileMetaData meta;
+  meta.level = old_meta->level;
+  meta.number = versions_->NewFileNumber();
+  pending_outputs_.insert(meta.number);
+
+  Iterator* iter = table_cache_->NewIterator(ReadOptions(), old_meta->number,
+                                             old_meta->file_size);
+  Status s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+  // delete iter;
+  pending_outputs_.erase(meta.number);
+  edit->AddFile(old_meta->level, meta.number, meta.file_size, meta.smallest,
+                meta.largest);
+  edit->RemoveFile(old_meta->level, old_meta->number);
+  return 0;
+}
+
+int DBImpl::CompactLevel0Files() {
+  MutexLock l(&mutex_);
+  VersionEdit edit;
+  Version* base = versions_->current();
+
+  // std::vector<std::pair<leveldb::Slice, leveldb::Slice> > key_value_pairs;
+  std::vector<Iterator*> iterators;
+  auto files = base->GetAllFiles();
+  std::vector<uint64_t> level_0_numbers;
+  for (auto file : files) {
+    if (file->level == 0) {
+      pending_outputs_.insert(file->number);
+      Iterator* iter = table_cache_->NewIterator(ReadOptions(), file->number,
+                                                 file->file_size);
+      // for (; iter->Valid(); iter->Next()) {
+      //   key_value_pairs.push_back({iter->key(), iter->value()});
+      // }
+      iterators.push_back(iter);
+      level_0_numbers.push_back(file->number);
+    }
+  }
+
+  Iterator* new_it =
+      NewMergingIterator(user_comparator(), &iterators[0], iterators.size());
+
+  FileMetaData meta;
+  meta.level = 0;
+  meta.number = versions_->NewFileNumber();
+  Status s = BuildTable(dbname_, env_, options_, table_cache_, new_it, &meta);
+
+  edit.AddFile(0, meta.number, meta.file_size, meta.smallest, meta.largest);
+  for (auto file_num : level_0_numbers) {
+    edit.RemoveFile(0, file_num);
+  }
+
+  s = versions_->LogAndApply(&edit, &mutex_);
+  if (s.ok()) {
+    // RemoveObsoleteFiles();
+  } else {
+    std::cout << "problem" << std::endl;
+  }
+  delete new_it;
+  pending_outputs_.erase(meta.number);
+
+  return 0;
+
+  // const leveldb::Comparator *comparator = user_comparator();
+  // std::sort(key_value_pairs.begin(), key_value_pairs.end(),
+  //           [comparator](const std::pair<leveldb::Slice, leveldb::Slice>&
+  //           lhs,
+  //                        const std::pair<leveldb::Slice, leveldb::Slice>&
+  //                        rhs) {
+  //             return comparator->Compare(lhs.first, rhs.first) <= 0;
+  //           });
+  // }
+
+  return 0;
+}
+
+Status DBImpl::GetRange(const ReadOptions& options, const Slice& start_key,
+                        const Slice& end_key,
+                        std::vector<std::pair<Slice, std::string>>* result) {
+  Iterator* db_iter = NewIterator(options);
+  db_iter->Seek(start_key);
+  while (db_iter->Valid() && internal_comparator_.user_comparator()->Compare(
+                                 db_iter->key(), end_key) <= 0) {
+    result->push_back({db_iter->key(), db_iter->value().ToString()});
+    db_iter->Next();
+  }
+
+  return Status::OK();
 }
 
 }  // namespace leveldb

@@ -25,6 +25,7 @@ class TableCache;
 class Version;
 class VersionEdit;
 class VersionSet;
+class FileMetaData;
 
 class DBImpl : public DB {
  public:
@@ -48,6 +49,14 @@ class DBImpl : public DB {
   bool GetProperty(const Slice& property, std::string* value) override;
   void GetApproximateSizes(const Range* range, int n, uint64_t* sizes) override;
   void CompactRange(const Slice* begin, const Slice* end) override;
+
+  Status GetRange(const ReadOptions& options, const Slice& start_key, const Slice& end_key,
+                     std::vector<std::pair<Slice, std::string>> *result) override;
+  
+  std::vector<std::vector<long>> GetBytesPerRun() override;
+  int ForceFilters() override;
+  int RewriteTable(FileMetaData* old_meta, VersionEdit* edit, Version* base);
+  int CompactLevel0Files() override;
 
   // Extra methods (for testing) that are not in the public DB interface
 

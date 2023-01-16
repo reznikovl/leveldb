@@ -62,10 +62,10 @@ struct TableBuilder::Rep {
   std::string compressed_output;
 };
 
-TableBuilder::TableBuilder(const Options& options, WritableFile* file)
-    : rep_(new Rep(options, file)) {
+TableBuilder::TableBuilder(const Options& options, WritableFile* file, int level)
+    : rep_(new Rep(options, file)), level_(level) {
   if (rep_->filter_block != nullptr) {
-    rep_->filter_block->StartBlock(0);
+    rep_->filter_block->StartBlock(0, level_);
   }
 }
 
@@ -134,7 +134,7 @@ void TableBuilder::Flush() {
     r->status = r->file->Flush();
   }
   if (r->filter_block != nullptr) {
-    r->filter_block->StartBlock(r->offset);
+    r->filter_block->StartBlock(r->offset, level_);
   }
 }
 
@@ -205,7 +205,7 @@ Status TableBuilder::Finish() {
 
   // Write filter block
   if (ok() && r->filter_block != nullptr) {
-    WriteRawBlock(r->filter_block->Finish(), kNoCompression,
+    WriteRawBlock(r->filter_block->Finish(level_), kNoCompression,
                   &filter_block_handle);
   }
 

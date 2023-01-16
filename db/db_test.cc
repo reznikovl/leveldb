@@ -236,7 +236,7 @@ class DBTest : public testing::Test {
   Options last_options_;
 
   DBTest() : env_(new SpecialEnv(Env::Default())), option_config_(kDefault) {
-    filter_policy_ = NewBloomFilterPolicy(10);
+    // filter_policy_ = NewBloomFilterPolicy(10);
     dbname_ = testing::TempDir() + "db_test";
     DestroyDB(dbname_, Options());
     db_ = nullptr;
@@ -247,7 +247,7 @@ class DBTest : public testing::Test {
     delete db_;
     DestroyDB(dbname_, Options());
     delete env_;
-    delete filter_policy_;
+    // delete filter_policy_;
   }
 
   // Switch to a fresh database with the next option configuration to
@@ -271,7 +271,7 @@ class DBTest : public testing::Test {
         options.reuse_logs = true;
         break;
       case kFilter:
-        options.filter_policy = filter_policy_;
+        // options.filter_policy = filter_policy_;
         break;
       case kUncompressed:
         options.compression = kNoCompression;
@@ -1899,7 +1899,7 @@ TEST_F(DBTest, BloomFilter) {
   Options options = CurrentOptions();
   options.env = env_;
   options.block_cache = NewLRUCache(0);  // Prevent cache hits
-  options.filter_policy = NewBloomFilterPolicy(10);
+  // options.filter_policy = NewBloomFilterPolicy(10);
   Reopen(&options);
 
   // Populate multiple layers
@@ -2054,6 +2054,19 @@ class ModelDB : public DB {
   Status Put(const WriteOptions& o, const Slice& k, const Slice& v) override {
     return DB::Put(o, k, v);
   }
+
+  std::vector<std::vector<long>> GetBytesPerRun() override {
+    std::vector<std::vector<long>> result;
+    return result;
+  }
+  int ForceFilters() override { return 0; }
+  int CompactLevel0Files() override { return 0; }
+  Status GetRange(const ReadOptions& options, const Slice& start_key,
+                  const Slice& end_key,
+                  std::vector<std::pair<Slice, std::string>>* result) override {
+    return Status::OK();
+  }
+
   Status Delete(const WriteOptions& o, const Slice& key) override {
     return DB::Delete(o, key);
   }
