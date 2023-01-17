@@ -27,6 +27,18 @@ double TrySwitch(long& run1_entries, long& run1_bits, long& run2_entries,
   }
 }
 
+std::vector<std::pair<leveldb::Slice, std::string>> read_range(
+    leveldb::DB* db, leveldb::Slice v1, leveldb::Slice v2) {
+  std::vector<std::pair<leveldb::Slice, std::string>> result;
+  leveldb::Status status =
+      db->GetRange(leveldb::ReadOptions(), v1, v2, &result);
+  if (!(status.ok())) {
+    std::cout << "oops" << std::endl;
+    std::cout << status.ToString();
+  }
+  return result;
+}
+
 std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
                                   int key_size, int bits_per_entry_equivalent) {
   long total_entries = 0;
@@ -55,7 +67,7 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
                           runs_bits[i], delta, R_new);
       }
     }
-    if (R_new == R) {
+    if (abs(R_new - R) < 0.000001) {  // fixed float error
       delta /= 2;
     }
     R = R_new;
@@ -83,7 +95,7 @@ std::string gen_random(const int len) {
 }
 
 int write_data(leveldb::DB* db, int num_megabytes, int key_size) {
-  for (int i = 0; i < num_megabytes * 1024; i++) {
+  for (int i = 0; i < num_megabytes * (1024*1024/key_size); i++) {
     std::string value = gen_random(key_size);
     leveldb::Status status =
         db->Put(leveldb::WriteOptions(), leveldb::Slice(value), "");
@@ -122,34 +134,41 @@ int main(int argc, char** argv) {
   
   leveldb::Options options;
 
-  std::vector<int> leveling_factors{10, 10, 2,2,2,2,2,}; // first number is ignored
+  // std::vector<int> leveling_factors{10, 10, 2,2,2,2,2,}; // first number is ignored
 
   // other options to set:
   options.block_size = 4 * 1024;
   options.compression = leveldb::kNoCompression;
-  options.leveling_factors = leveling_factors;
-  int key_size = 1024;
-  int num_megabytes_to_write = 1024;
+  // options.leveling_factors = leveling_factors;
+  int key_size = 128;
+  int num_megabytes_to_write = 512;
   int bits_per_entry_filter = 1;
-
-
+  options.base_scaling_factor = 10;
+  options.ratio_diff = 1;
 
   bool seed_database = strcmp(argv[1], "1") == 0;
   bool use_monkey = strcmp(argv[2], "1") == 0;
   leveldb::DB* db;
-  srand(time(nullptr));
+  srand(time(nullptr)); // TODO: Constant seed
   options.create_if_missing = true;
   
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
 
   if (seed_database) {
     std::cout << "Seeding database..." << std::endl;
+    auto start = std::chrono::high_resolution_clock::now();
     int status = write_data(db, num_megabytes_to_write, key_size);
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration =
+        std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+
     if (status != 0) {
       std::cout << "Error seeding database." << std::endl;
       return -1;
     } else {
       std::cout << "Database seeding complete." << std::endl;
+      std::cout << "Time to seed db: " << duration.count() << " ms"
+                << std::endl;
     }
   }
 
@@ -164,12 +183,16 @@ int main(int argc, char** argv) {
   std::vector<std::vector<long>> bytes_per_level_with_zeros = db->GetBytesPerRun();
   std::vector<long> entries_per_run;
   for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
+    for (int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
+      std::cout << "Level " << i << " run " << j
+                << " size: " << bytes_per_level_with_zeros[i][j] << std::endl;
+    }
     if (bytes_per_level_with_zeros[i].size() == 0) {
       break;
     }
 
     for(int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
-      entries_per_run.push_back(bytes_per_level_with_zeros[i][j] / 1024);
+      entries_per_run.push_back(bytes_per_level_with_zeros[i][j] / key_size);
     }
   }
 
@@ -220,6 +243,21 @@ int main(int argc, char** argv) {
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  std::cout << "Done. Took " << duration.count() << "ms" << std::endl;
+  std::cout << "Done point reading. Took " << duration.count() << "ms"
+            << std::endl;
+
+  start = std::chrono::high_resolution_clock::now();
+  auto result = read_range(db, leveldb::Slice("C"), leveldb::Slice("E"));
+  stop = std::chrono::high_resolution_clock::now();
+  duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  std::cout << "Range read query done. Took " << duration.count() << "ms"
+            << std::endl;
+  if (result.empty()) {
+    std::cout << "Nothing found..." << std::endl;
+  } else {
+    std::cout << "Read from " << result[0].first.ToString() << " to "
+              << result[result.size() - 1].first.ToString() << std::endl;
+  }
   return 0;
 }

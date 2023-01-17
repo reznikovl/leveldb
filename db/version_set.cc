@@ -19,6 +19,7 @@
 #include "util/coding.h"
 #include "util/logging.h"
 #include <iostream>
+#include <cmath>
 
 namespace leveldb {
 
@@ -59,19 +60,16 @@ static int64_t ExpandedCompactionByteSizeLimit(const Options* options) {
   return 25 * TargetFileSize(options);
 }
 
-static double MaxBytesForLevel(const Options* options, int level) {
+static double MaxBytesForLevel(const Options* options, int level, int max_level_in_use) {
   // Note: the result for level zero is not really used since we set
   // the level-0 compaction threshold based on number of files.
 
   // Result for level-0
-  double result = 2. * 1048576.0;
+  double result = 10. * 1048576.0;
   while (level >= 1) {
-    if (options->leveling_factors.size() == 0) {
-      result *= 10;
-    }
-    else {
-      result *= options->leveling_factors[level];
-    }
+    double factor = options->base_scaling_factor *
+                    pow(options->ratio_diff, -1 * (max_level_in_use - level));
+    result *= factor;
     level--;
   }
   return result;
@@ -1059,6 +1057,16 @@ void VersionSet::Finalize(Version* v) {
   // Precomputed best level for next compaction
   int best_level = -1;
   double best_score = -1;
+  int max_level_in_use = -1;
+  for (int level = config::kNumLevels - 1; level >= 0; level--) {
+    if (!v->files_[level].empty()) {
+      max_level_in_use = level;
+      break;
+    }
+  }
+  if (max_level_in_use == -1) {
+    max_level_in_use = 0;
+  }
 
   for (int level = 0; level < config::kNumLevels - 1; level++) {
     double score;
@@ -1080,7 +1088,7 @@ void VersionSet::Finalize(Version* v) {
       // Compute the ratio of current size to size limit.
       const uint64_t level_bytes = TotalFileSize(v->files_[level]);
       score =
-          static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level);
+          static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level, max_level_in_use);
     }
 
     if (score > best_score) {

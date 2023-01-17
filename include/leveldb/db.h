@@ -101,6 +101,9 @@ class LEVELDB_EXPORT DB {
   // state.  The caller must call ReleaseSnapshot(result) when the
   // snapshot is no longer needed.
   virtual const Snapshot* GetSnapshot() = 0;
+  virtual Status GetRange(
+      const ReadOptions& options, const Slice& start_key, const Slice& end_key,
+      std::vector<std::pair<Slice, std::string>>* result) = 0;
 
   /**
    * Can be used online

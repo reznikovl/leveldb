@@ -2058,6 +2058,11 @@ class ModelDB : public DB {
     std::vector<std::vector<long>> result;
     return result;
   }
+  Status GetRange(const ReadOptions& options, const Slice& start_key,
+                  const Slice& end_key,
+                  std::vector<std::pair<Slice, std::string>>* result) override {
+    return Status::OK();
+  }
   int ForceFilters() override {
     return 0;
   }
