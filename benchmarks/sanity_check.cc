@@ -108,11 +108,11 @@ int main(int argc, char** argv) {
         std::cout << "Oops" << std::endl;
     }
   }
-  sleep(10);
-  db->CompactLevel0Files();
-  sleep(10);
+  // sleep(10);
+  // db->CompactLevel0Files();
+  // sleep(10);
 
-  db->ForceFilters();
+  // db->ForceFilters();
 
   for(int i = 100000; i > 0; i--) {
     std::string value;
@@ -125,7 +125,22 @@ int main(int argc, char** argv) {
     }
   }
   std::cout << "We gucci?" << std::endl;
-  return 0;
   
 
+  std::vector<std::pair<leveldb::Slice, std::string>> result;
+
+  auto s = db->GetRange(leveldb::ReadOptions(), leveldb::Slice("2"), leveldb::Slice("3"), &result);
+
+  std::cout << "Range of length " << result.size() << std::endl;
+  std::cout << "First 5" << std::endl;
+
+  for (int i = 0; i < std::min(result.size(), (size_t)5); i++) {
+    std::cout << "Key " << result[i].first.ToString() << ", Value " << result[i].second << std::endl;
+  }
+  std::cout << "Last 5" << std::endl;
+  for (int i = result.size() - 1; i >= result.size() - 5; i--) {
+    std::cout << "Key " << result[i].first.ToString() << ", Value "
+              << result[i].second << std::endl;
+  }
+  return 0;
 }

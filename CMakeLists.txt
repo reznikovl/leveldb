@@ -436,6 +436,8 @@ if(LEVELDB_BUILD_BENCHMARKS)
   if(NOT BUILD_SHARED_LIBS)
     leveldb_benchmark("benchmarks/db_bench.cc")
     leveldb_benchmark("benchmarks/leron_bench1.cc")
+    leveldb_benchmark("benchmarks/sanity_check.cc")
+    leveldb_benchmark("benchmarks/sanity_check_2.cc")
   endif(NOT BUILD_SHARED_LIBS)
 
   check_library_exists(sqlite3 sqlite3_open "" HAVE_SQLITE3)
