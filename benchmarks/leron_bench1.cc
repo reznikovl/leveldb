@@ -27,14 +27,12 @@ double TrySwitch(long& run1_entries, long& run1_bits, long& run2_entries,
   }
 }
 
-std::vector<std::pair<leveldb::Slice, std::string>> read_range(
-    leveldb::DB* db, leveldb::Slice v1, leveldb::Slice v2) {
-  std::vector<std::pair<leveldb::Slice, std::string>> result;
-  leveldb::Status status =
-      db->GetRange(leveldb::ReadOptions(), v1, v2, &result);
-  if (!(status.ok())) {
-    std::cout << "oops" << std::endl;
-    std::cout << status.ToString();
+std::vector<std::pair<std::string, std::string>> read_range(
+    leveldb::DB* db, std::string v1, std::string v2) {
+  std::vector<std::pair<std::string, std::string>> result;
+  auto it = db->NewIterator(leveldb::ReadOptions());
+  for(it->Seek(leveldb::Slice(v1)); it->key().ToString() < v2; it->Next()) {
+    result.push_back({it->key().ToString(), it->value().ToString()});
   }
   return result;
 }
@@ -247,7 +245,7 @@ int main(int argc, char** argv) {
             << std::endl;
 
   start = std::chrono::high_resolution_clock::now();
-  auto result = read_range(db, leveldb::Slice("C"), leveldb::Slice("E"));
+  auto result = read_range(db, "C", "D");
   stop = std::chrono::high_resolution_clock::now();
   duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
@@ -256,8 +254,8 @@ int main(int argc, char** argv) {
   if (result.empty()) {
     std::cout << "Nothing found..." << std::endl;
   } else {
-    std::cout << "Read from " << result[0].first.ToString() << " to "
-              << result[result.size() - 1].first.ToString() << std::endl;
+    std::cout << "Read from " << result[0].first << " to "
+              << result[result.size() - 1].first << std::endl;
   }
   return 0;
 }

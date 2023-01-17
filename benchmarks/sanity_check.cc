@@ -64,16 +64,20 @@ int read_data(leveldb::DB* db, int num_entries, int key_size) {
   return 0;
 }
 
-std::vector<std::pair<leveldb::Slice, std::string>> read_range(
-    leveldb::DB* db, leveldb::Slice v1, leveldb::Slice v2) {
-  std::vector<std::pair<leveldb::Slice, std::string>> result;
-  leveldb::Status status =
-      db->GetRange(leveldb::ReadOptions(), v1, v2, &result);
-  if (!(status.ok())) {
-    std::cout << "oops" << std::endl;
-    std::cout << status.ToString();
+std::vector<std::pair<std::string, std::string>> read_range2(
+    leveldb::DB* db, std::string v1, std::string v2) {
+  std::vector<std::pair<std::string, std::string>> result;
+  auto it = db->NewIterator(leveldb::ReadOptions());
+  for(it->Seek(leveldb::Slice(v1)); it->key().ToString() < v2; it->Next()) {
+    if (std::stoi(it->key().ToString()) + 1 != std::stoi(it->value().ToString())) {
+      std::cout << "bad key value pair" << std::endl;
+      std::cout << "Key: " << it->key().ToString() << std::endl;
+      std::cout << "Value: " << it->value().ToString() << std::endl;
+    }
+      result.push_back({it->key().ToString(), it->value().ToString()});
   }
   return result;
+
 }
 
 int main(int argc, char** argv) {
@@ -102,7 +106,7 @@ int main(int argc, char** argv) {
 
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
 
-  for (int i = 100000; i > 0; i--) {
+  for (int i = 1000000; i > 0; i--) {
     leveldb::Status s = db->Put(leveldb::WriteOptions(), leveldb::Slice(std::to_string(i)), leveldb::Slice(std::to_string(i+1)));
     if (!s.ok()) {
         std::cout << "Oops" << std::endl;
@@ -114,7 +118,7 @@ int main(int argc, char** argv) {
 
   // db->ForceFilters();
 
-  for(int i = 100000; i > 0; i--) {
+  for(int i = 1000000; i > 0; i--) {
     std::string value;
     leveldb::Status s = db->Get(leveldb::ReadOptions(), leveldb::Slice(std::to_string(i)), &value);
     if (!s.ok()) {
@@ -127,20 +131,22 @@ int main(int argc, char** argv) {
   std::cout << "We gucci?" << std::endl;
   
 
-  std::vector<std::pair<leveldb::Slice, std::string>> result;
+  // std::vector<std::pair<leveldb::Slice, std::string>> result;
 
-  auto s = db->GetRange(leveldb::ReadOptions(), leveldb::Slice("2"), leveldb::Slice("3"), &result);
+  // auto s = db->GetRange(leveldb::ReadOptions(), leveldb::Slice("2"), leveldb::Slice("3"), &result);
 
-  std::cout << "Range of length " << result.size() << std::endl;
+  auto r = read_range2(db, "2", "23");
+
+  std::cout << "Range of length " << r.size() << std::endl;
   std::cout << "First 5" << std::endl;
 
-  for (int i = 0; i < std::min(result.size(), (size_t)5); i++) {
-    std::cout << "Key " << result[i].first.ToString() << ", Value " << result[i].second << std::endl;
+  for (int i = 0; i < std::min(r.size(), (size_t)5); i++) {
+    std::cout << "Key " << r[i].first << ", Value " << r[i].second << std::endl;
   }
   std::cout << "Last 5" << std::endl;
-  for (int i = result.size() - 1; i >= result.size() - 5; i--) {
-    std::cout << "Key " << result[i].first.ToString() << ", Value "
-              << result[i].second << std::endl;
+  for (int i = r.size() - 1; i >= r.size() - 5; i--) {
+    std::cout << "Key " << r[i].first << ", Value "
+              << r[i].second << std::endl;
   }
   return 0;
 }

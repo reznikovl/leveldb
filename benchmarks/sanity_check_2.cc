@@ -64,18 +64,6 @@ int read_data(leveldb::DB* db, int num_entries, int key_size) {
   return 0;
 }
 
-std::vector<std::pair<leveldb::Slice, std::string>> read_range(
-    leveldb::DB* db, leveldb::Slice v1, leveldb::Slice v2) {
-  std::vector<std::pair<leveldb::Slice, std::string>> result;
-  leveldb::Status status =
-      db->GetRange(leveldb::ReadOptions(), v1, v2, &result);
-  if (!(status.ok())) {
-    std::cout << "oops" << std::endl;
-    std::cout << status.ToString();
-  }
-  return result;
-}
-
 double eval(long run_bits, long runs_entries) {
   return std::exp(run_bits / runs_entries * std::pow(std::log(2), 2) * -1);
 }

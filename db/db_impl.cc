@@ -1662,18 +1662,5 @@ int DBImpl::CompactLevel0Files() {
 return 0;
 }
 
-Status DBImpl::GetRange(const ReadOptions& options, const Slice& start_key,
-                        const Slice& end_key,
-                        std::vector<std::pair<Slice, std::string>>* result) {
-Iterator* db_iter = NewIterator(options);
-db_iter->Seek(start_key);
-while (db_iter->Valid() && internal_comparator_.user_comparator()->Compare(
-                               db_iter->key(), end_key) <= 0) {
-    result->push_back({db_iter->key(), db_iter->value().ToString()});
-    db_iter->Next();
-}
-
-return Status::OK();
-}
 }
  // namespace leveldb
