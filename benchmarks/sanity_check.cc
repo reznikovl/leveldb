@@ -112,11 +112,11 @@ int main(int argc, char** argv) {
         std::cout << "Oops" << std::endl;
     }
   }
-  // sleep(10);
-  // db->CompactLevel0Files();
-  // sleep(10);
+  sleep(10);
+  db->CompactLevel0Files();
+  sleep(10);
 
-  // db->ForceFilters();
+  db->ForceFilters();
 
   for(int i = 1000000; i > 0; i--) {
     std::string value;

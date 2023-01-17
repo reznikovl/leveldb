@@ -1627,6 +1627,10 @@ int DBImpl::CompactLevel0Files() {
     }
   }
 
+  if (iterators.size() == 0) {
+    return -1;
+  }
+
   Iterator* new_it = NewMergingIterator(&internal_comparator_, &iterators[0],
                                         iterators.size());
 
