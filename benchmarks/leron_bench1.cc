@@ -31,7 +31,7 @@ std::vector<std::pair<std::string, std::string>> read_range(
     leveldb::DB* db, std::string v1, std::string v2) {
   std::vector<std::pair<std::string, std::string>> result;
   auto it = db->NewIterator(leveldb::ReadOptions());
-  for(it->Seek(leveldb::Slice(v1)); it->key().ToString() < v2; it->Next()) {
+  for(it->Seek(leveldb::Slice(v1)); it->Valid() && it->key().ToString() < v2; it->Next()) {
     result.push_back({it->key().ToString(), it->value().ToString()});
   }
   return result;
@@ -79,8 +79,8 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
 
 std::string gen_random(const int len) {
   static const char alphanum[] =
-      "0123456789"
-      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      // "0123456789"
+      // "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
       "abcdefghijklmnopqrstuvwxyz";
   std::string tmp_s;
   tmp_s.reserve(len);
@@ -221,10 +221,11 @@ int main(int argc, char** argv) {
       bits_per_key_per_level.push_back(bits_per_entry_filter);
     }
   }          
-
+  sleep(10);
   delete db;
   options.filter_policy = leveldb::NewBloomFilterPolicy(bits_per_key_per_level);
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  sleep(10);
   std::cout << "Forcing filters" << std::endl;
   db->ForceFilters();
   for (int i = 0; i < bits_per_key_per_level.size(); i++) {
@@ -245,7 +246,7 @@ int main(int argc, char** argv) {
             << std::endl;
 
   start = std::chrono::high_resolution_clock::now();
-  auto result = read_range(db, "C", "D");
+  auto result = read_range(db, "c", "d");
   stop = std::chrono::high_resolution_clock::now();
   duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);

@@ -106,26 +106,29 @@ int main(int argc, char** argv) {
 
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
 
-  for (int i = 1000000; i > 0; i--) {
-    leveldb::Status s = db->Put(leveldb::WriteOptions(), leveldb::Slice(std::to_string(i)), leveldb::Slice(std::to_string(i+1)));
-    if (!s.ok()) {
-        std::cout << "Oops" << std::endl;
-    }
-  }
+  // for (int i = 1000000; i > 0; i--) {
+  //   leveldb::Status s = db->Put(leveldb::WriteOptions(), leveldb::Slice(std::to_string(i)), leveldb::Slice(std::to_string(i+1)));
+  //   if (!s.ok()) {
+  //       std::cout << "Oops" << std::endl;
+  //   }
+  // }
   sleep(10);
   db->CompactLevel0Files();
   sleep(10);
 
   db->ForceFilters();
+  sleep(10);
 
-  for(int i = 1000000; i > 0; i--) {
+  for(int i = 1000001; i > 0; i--) {
     std::string value;
     leveldb::Status s = db->Get(leveldb::ReadOptions(), leveldb::Slice(std::to_string(i)), &value);
     if (!s.ok()) {
         std::cout << s.ToString() << std::endl;
+        std::cout << "Error on key " << i << std::endl;
     }
     if(value != std::to_string(i+1)) {
         std::cout << "oops2" << std::endl;
+        std::cout << "Error on key " << i << std::endl;
     }
   }
   std::cout << "We gucci?" << std::endl;

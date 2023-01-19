@@ -518,6 +518,10 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   {
     mutex_.Unlock();
     s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+    if (meta.smallest.user_key().ToString() >=
+        meta.largest.user_key().ToString()) {
+      std::cout << "BAD smaller bigger than largest in OG code??" << std::endl;
+    }
     mutex_.Lock();
   }
 
@@ -735,6 +739,10 @@ void DBImpl::BackgroundCompaction() {
     // Move file to next level
     assert(c->num_input_files(0) == 1);
     FileMetaData* f = c->input(0, 0);
+    if (f->smallest.user_key().ToString() >=
+        f->largest.user_key().ToString()) {
+      std::cout << "BAD smaller bigger than largest in OG code 2??" << std::endl;
+    }
     c->edit()->RemoveFile(c->level(), f->number);
     c->edit()->AddFile(c->level() + 1, f->number, f->file_size, f->smallest,
                        f->largest);
@@ -1563,6 +1571,9 @@ int DBImpl::ForceFilters() {
   Version* base = versions_->current();
   std::vector<FileMetaData*> files = base->GetAllFiles();
   for(int i = 0; i < files.size(); i++) {
+    if (files[i]->smallest.user_key().ToString() > files[i]->largest.user_key().ToString()) {
+      std::cout << "Corruption on entry..." << std::endl;
+    }
     RewriteTable(files[i], &edit, base);
   }
   Status s = versions_->LogAndApply(&edit, &mutex_);
@@ -1590,6 +1601,10 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
   Iterator* iter = table_cache_->NewIterator(ReadOptions(), old_meta->number,
                                              old_meta->file_size);
   Status s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
+
+  // workaround?
+  meta.largest = old_meta->largest;
+
   delete iter;
   pending_outputs_.erase(meta.number);
   edit->AddFile(old_meta->level, meta.number, meta.file_size, meta.smallest, meta.largest);
@@ -1611,24 +1626,28 @@ int DBImpl::CompactLevel0Files() {
   VersionEdit edit;
   Version* base = versions_->current();
   
-  // std::vector<std::pair<leveldb::Slice, leveldb::Slice> > key_value_pairs;
   std::vector<Iterator *> iterators;
   auto files = base->GetAllFiles();
   std::vector<uint64_t> level_0_numbers;
+  std::vector<InternalKey> largest_keys;
   for(auto file : files) {
     if (file->level == 0) {
       pending_outputs_.insert(file->number);
       Iterator* iter = table_cache_->NewIterator(ReadOptions(), file->number, file->file_size);
-      // for (; iter->Valid(); iter->Next()) {
-      //   key_value_pairs.push_back({iter->key(), iter->value()});
-      // }
       iterators.push_back(iter);
       level_0_numbers.push_back(file->number);
+      largest_keys.push_back(file->largest);
     }
   }
 
   if (iterators.size() == 0) {
     return -1;
+  }
+  InternalKey largest = largest_keys[0];
+  for(auto key : largest_keys) {
+    if (internal_comparator_.Compare(key, largest) > 0) {
+      largest = key;
+    }
   }
 
   Iterator* new_it = NewMergingIterator(&internal_comparator_, &iterators[0],
@@ -1638,6 +1657,7 @@ int DBImpl::CompactLevel0Files() {
   meta.level = 0;
   meta.number = versions_->NewFileNumber();
   Status s = BuildTable(dbname_, env_, options_, table_cache_, new_it, &meta);
+  meta.largest = largest;
 
   edit.AddFile(0, meta.number, meta.file_size, meta.smallest, meta.largest);
   for(auto file_num : level_0_numbers) {
