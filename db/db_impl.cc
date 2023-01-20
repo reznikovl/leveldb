@@ -1602,7 +1602,7 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
                                              old_meta->file_size);
   Status s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
 
-  // workaround?
+  // workaround
   meta.largest = old_meta->largest;
 
   delete iter;
