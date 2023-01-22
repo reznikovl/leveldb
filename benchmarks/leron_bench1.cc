@@ -6,6 +6,7 @@
 
 #include "leveldb/db.h"
 #include "leveldb/filter_policy.h"
+#include "leveldb/cache.h"
 
 double eval(long run_bits, long runs_entries) {
   return std::exp(run_bits / runs_entries * std::pow(std::log(2), 2) * -1);
@@ -27,14 +28,24 @@ double TrySwitch(long& run1_entries, long& run1_bits, long& run2_entries,
   }
 }
 
-std::vector<std::pair<std::string, std::string>> read_range(
-    leveldb::DB* db, std::string v1, std::string v2) {
+void read_range(
+    leveldb::DB* db, leveldb::ReadOptions read_options, int num_repetitions) {
   std::vector<std::pair<std::string, std::string>> result;
-  auto it = db->NewIterator(leveldb::ReadOptions());
-  for(it->Seek(leveldb::Slice(v1)); it->Valid() && it->key().ToString() < v2; it->Next()) {
-    result.push_back({it->key().ToString(), it->value().ToString()});
+  static const char alphanum[] =
+      // "0123456789"
+      // "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      "abcdefghijklmnopqrstuvwxyz";
+  auto it = db->NewIterator(read_options);
+  for(int i = 0; i < num_repetitions; i++) {
+    for (auto i : alphanum) {
+      std::string start_str = std::string(1, i);
+      it->Seek(leveldb::Slice(start_str));
+      for (int i = 0; i < 10 && it->Valid(); it->Next(), i++) {
+        leveldb::Slice key = it->key();
+      }
+    }
   }
-  return result;
+  
 }
 
 std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
@@ -65,7 +76,7 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
                           runs_bits[i], delta, R_new);
       }
     }
-    if (abs(R_new - R) < 0.000001) {  // fixed float error
+    if (std::abs(R_new - R) < 0.000001) {  // fixed float error
       delta /= 2;
     }
     R = R_new;
@@ -106,12 +117,12 @@ int write_data(leveldb::DB* db, int num_megabytes, int key_size) {
   return 0;
 }
 
-int read_data(leveldb::DB* db, int num_entries, int key_size) {
+int read_data(leveldb::DB* db, int num_entries, int key_size, leveldb::ReadOptions read_options) {
   for (int i = 0; i < num_entries; i++) {
     std::string value = gen_random(key_size);
     std::string result;
     leveldb::Status status =
-        db->Get(leveldb::ReadOptions(), leveldb::Slice(value), &result);
+        db->Get(read_options, leveldb::Slice(value), &result);
     if (!(status.ok() || status.IsNotFound())) {
       std::cout << "oops" << std::endl;
       std::cout << status.ToString();
@@ -131,23 +142,26 @@ int main(int argc, char** argv) {
   }
   
   leveldb::Options options;
-
-  // std::vector<int> leveling_factors{10, 10, 2,2,2,2,2,}; // first number is ignored
+  int key_size = 128;
+  int num_megabytes_to_write = 3096;
+  int bits_per_entry_filter = 1;
+  options.base_scaling_factor = 2;
+  options.ratio_diff = 2.0/3.0;
 
   // other options to set:
-  options.block_size = 4 * 1024;
+  // options.block_size = 4 * 1024;
   options.compression = leveldb::kNoCompression;
-  // options.leveling_factors = leveling_factors;
-  int key_size = 128;
-  int num_megabytes_to_write = 512;
-  int bits_per_entry_filter = 1;
-  options.base_scaling_factor = 10;
-  options.ratio_diff = 1;
+  options.block_cache = leveldb::NewLRUCache(0);
+  int write_seed = 42;
+  int read_seed = write_seed + 1;
+  leveldb::ReadOptions read_options;
+  read_options.fill_cache = false;
+
+  
 
   bool seed_database = strcmp(argv[1], "1") == 0;
   bool use_monkey = strcmp(argv[2], "1") == 0;
   leveldb::DB* db;
-  srand(time(nullptr)); // TODO: Constant seed
   options.create_if_missing = true;
   
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
@@ -155,6 +169,7 @@ int main(int argc, char** argv) {
   if (seed_database) {
     std::cout << "Seeding database..." << std::endl;
     auto start = std::chrono::high_resolution_clock::now();
+    srand(write_seed);
     int status = write_data(db, num_megabytes_to_write, key_size);
     auto stop = std::chrono::high_resolution_clock::now();
     auto duration =
@@ -176,6 +191,7 @@ int main(int argc, char** argv) {
   delete db;
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
   db->CompactLevel0Files();
+  sleep(5);
   std::cout << "Calculating bloom filters..." << std::endl;
 
   std::vector<std::vector<long>> bytes_per_level_with_zeros = db->GetBytesPerRun();
@@ -221,11 +237,11 @@ int main(int argc, char** argv) {
       bits_per_key_per_level.push_back(bits_per_entry_filter);
     }
   }          
-  sleep(10);
+  sleep(5);
   delete db;
   options.filter_policy = leveldb::NewBloomFilterPolicy(bits_per_key_per_level);
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
-  sleep(10);
+  sleep(5);
   std::cout << "Forcing filters" << std::endl;
   db->ForceFilters();
   for (int i = 0; i < bits_per_key_per_level.size(); i++) {
@@ -233,12 +249,14 @@ int main(int argc, char** argv) {
               << bits_per_key_per_level[i] << std::endl;
   }
   delete db;
+  sleep(5);
   status = leveldb::DB::Open(options, "/tmp/testdb", &db);
 
   std::cout << "Reading..." << std::endl;
 
+  srand(read_seed);
   auto start = std::chrono::high_resolution_clock::now();
-  read_data(db, 12000, key_size);
+  read_data(db, 12000, key_size, read_options);
   auto stop = std::chrono::high_resolution_clock::now();
   auto duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
@@ -246,17 +264,17 @@ int main(int argc, char** argv) {
             << std::endl;
 
   start = std::chrono::high_resolution_clock::now();
-  auto result = read_range(db, "c", "d");
+  read_range(db, read_options, 500);
   stop = std::chrono::high_resolution_clock::now();
   duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
   std::cout << "Range read query done. Took " << duration.count() << "ms"
             << std::endl;
-  if (result.empty()) {
-    std::cout << "Nothing found..." << std::endl;
-  } else {
-    std::cout << "Read from " << result[0].first << " to "
-              << result[result.size() - 1].first << std::endl;
-  }
+  // if (result.empty()) {
+  //   std::cout << "Nothing found..." << std::endl;
+  // } else {
+  //   std::cout << "Read " << result.size() << " entries from " << result[0].first << " to "
+  //             << result[result.size() - 1].first << std::endl;
+  // }
   return 0;
 }

@@ -51,7 +51,6 @@ class DBImpl : public DB {
   void CompactRange(const Slice* begin, const Slice* end) override;
   std::vector<std::vector<long>> GetBytesPerRun() override;
   int ForceFilters() override;
-  int SetLevelingFactors(std::vector<int> factors) override;
   int RewriteTable(FileMetaData* old_meta, VersionEdit* edit, Version* base);
   int CompactLevel0Files() override;
 

@@ -1602,22 +1602,10 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
                                              old_meta->file_size);
   Status s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
 
-  // workaround
-  meta.largest = old_meta->largest;
-
   delete iter;
   pending_outputs_.erase(meta.number);
   edit->AddFile(old_meta->level, meta.number, meta.file_size, meta.smallest, meta.largest);
   edit->RemoveFile(old_meta->level, old_meta->number);
-  return 0;
-}
-
-int DBImpl::SetLevelingFactors(std::vector<int> factors) {
-  if(factors.size() != config::kNumLevels) {
-    return -1;
-  }
-  // options_.leveling_factors[0] = 0;
-  // options_.leveling_factors = factors;
   return 0;
 }
 
@@ -1643,21 +1631,14 @@ int DBImpl::CompactLevel0Files() {
   if (iterators.size() == 0) {
     return -1;
   }
-  InternalKey largest = largest_keys[0];
-  for(auto key : largest_keys) {
-    if (internal_comparator_.Compare(key, largest) > 0) {
-      largest = key;
-    }
-  }
 
   Iterator* new_it = NewMergingIterator(&internal_comparator_, &iterators[0],
                                         iterators.size());
-
   FileMetaData meta;
   meta.level = 0;
   meta.number = versions_->NewFileNumber();
+
   Status s = BuildTable(dbname_, env_, options_, table_cache_, new_it, &meta);
-  meta.largest = largest;
 
   edit.AddFile(0, meta.number, meta.file_size, meta.smallest, meta.largest);
   for(auto file_num : level_0_numbers) {
@@ -1674,16 +1655,6 @@ int DBImpl::CompactLevel0Files() {
   pending_outputs_.erase(meta.number);
 
   return 0;
-
-  // const leveldb::Comparator *comparator = user_comparator();
-  // std::sort(key_value_pairs.begin(), key_value_pairs.end(),
-  //           [comparator](const std::pair<leveldb::Slice, leveldb::Slice>& lhs,
-  //                        const std::pair<leveldb::Slice, leveldb::Slice>& rhs) {
-  //             return comparator->Compare(lhs.first, rhs.first) <= 0;
-  //           });
-  // }
-
-return 0;
 }
 
 }

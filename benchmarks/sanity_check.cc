@@ -104,14 +104,14 @@ int main(int argc, char** argv) {
   leveldb::DB* db;
   options.create_if_missing = true;
 
-  leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  leveldb::Status status = leveldb::DB::Open(options, "tmp/testdb", &db);
 
-  // for (int i = 1000000; i > 0; i--) {
-  //   leveldb::Status s = db->Put(leveldb::WriteOptions(), leveldb::Slice(std::to_string(i)), leveldb::Slice(std::to_string(i+1)));
-  //   if (!s.ok()) {
-  //       std::cout << "Oops" << std::endl;
-  //   }
-  // }
+  for (int i = 1000000; i > 0; i--) {
+    leveldb::Status s = db->Put(leveldb::WriteOptions(), leveldb::Slice(std::to_string(i)), leveldb::Slice(std::to_string(i+1)));
+    if (!s.ok()) {
+        std::cout << "Oops" << std::endl;
+    }
+  }
   sleep(10);
   db->CompactLevel0Files();
   sleep(10);

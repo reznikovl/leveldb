@@ -51,10 +51,16 @@ int g_mmap_limit = kDefaultMmapLimit;
 
 // Common flags defined for all posix open operations
 #if defined(HAVE_O_CLOEXEC)
-constexpr const int kOpenBaseFlags = O_CLOEXEC;
+constexpr const int kOpenBaseFlag1 = O_CLOEXEC;
 #else
-constexpr const int kOpenBaseFlags = 0;
+constexpr const int kOpenBaseFlag1 = 0;
 #endif  // defined(HAVE_O_CLOEXEC)
+
+#if defined (O_DIRECT)
+constexpr const int kOpenBaseFlags = kOpenBaseFlag1 | O_DIRECT;
+#else
+constexpr const int kOpenBaseFlags = kOpenBaseFlag1;
+#endif
 
 constexpr const size_t kWritableFileBufferSize = 65536;
 

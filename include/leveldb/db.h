@@ -124,12 +124,6 @@ class LEVELDB_EXPORT DB {
    */
   virtual int CompactLevel0Files() = 0;
 
-  /**
-   * @brief Sets the leveling factors
-   * 
-   */
-  virtual int SetLevelingFactors(std::vector<int> factors) = 0;
-
   // Release a previously acquired snapshot.  The caller must not
   // use "snapshot" after this call.
   virtual void ReleaseSnapshot(const Snapshot* snapshot) = 0;
