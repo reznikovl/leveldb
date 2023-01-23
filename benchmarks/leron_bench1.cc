@@ -143,10 +143,10 @@ int main(int argc, char** argv) {
   
   leveldb::Options options;
   int key_size = 128;
-  int num_megabytes_to_write = 3096;
-  int bits_per_entry_filter = 1;
+  int num_megabytes_to_write = 2048;
+  int bits_per_entry_filter = 5;
   options.base_scaling_factor = 2;
-  options.ratio_diff = 2.0/3.0;
+  options.ratio_diff = 1;
 
   // other options to set:
   // options.block_size = 4 * 1024;
