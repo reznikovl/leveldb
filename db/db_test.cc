@@ -2058,6 +2058,10 @@ class ModelDB : public DB {
     std::vector<std::vector<long>> result;
     return result;
   }
+  std::vector<std::vector<long>> GetExactEntriesPerRun() override {
+    std::vector<std::vector<long>> result;
+    return result;
+  }
   int ForceFilters() override {
     return 0;
   }

@@ -37,6 +37,14 @@ std::vector<std::vector<long>> Version::GetBytesPerRun() {
 }
 std::vector<FileMetaData *> Version::GetAllFiles() {
   std::vector<FileMetaData*> result;
+  // debug
+  for (int i = 0; i < config::kNumLevels; i++) {
+    for (int j = 0; j < files_[i].size(); j++) {
+      if(files_[i][j]->level != i) {
+        std::cout << "Level information wrong..." << std::endl;
+      }
+    }
+  }
   for (int i = 0; i < config::kNumLevels; i++) {
     result.insert(result.end(), files_[i].begin(), files_[i].end());
   }

@@ -104,7 +104,7 @@ int main(int argc, char** argv) {
   leveldb::DB* db;
   options.create_if_missing = true;
 
-  leveldb::Status status = leveldb::DB::Open(options, "tmp/testdb", &db);
+  leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb2", &db);
 
   for (int i = 1000000; i > 0; i--) {
     leveldb::Status s = db->Put(leveldb::WriteOptions(), leveldb::Slice(std::to_string(i)), leveldb::Slice(std::to_string(i+1)));
@@ -112,12 +112,17 @@ int main(int argc, char** argv) {
         std::cout << "Oops" << std::endl;
     }
   }
-  sleep(10);
+  sleep(3);
   db->CompactLevel0Files();
-  sleep(10);
-
+  sleep(3);
+  delete db;
+  std::vector<long> policy = {2, 0, 1, 1, 1, 1, 1};
+  options.filter_policy = leveldb::NewBloomFilterPolicy(policy);
+  leveldb::DB::Open(options, "/tmp/testdb2", &db);
+  sleep(3);
   db->ForceFilters();
-  sleep(10);
+  sleep(3);
+  
 
   for(int i = 1000001; i > 0; i--) {
     std::string value;

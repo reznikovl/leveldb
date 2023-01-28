@@ -69,7 +69,10 @@ class BloomFilterPolicy : public FilterPolicy {
   bool KeyMayMatch(const Slice& key, const Slice& bloom_filter) const override {
     // std::cout << "attempting to match" << std::endl;
     const size_t len = bloom_filter.size();
-    if (len < 2) return false;
+    if (len < 2) {
+      // std::cout << "here" << std::endl;
+      return true;
+    }
 
     const char* array = bloom_filter.data();
     const size_t bits = (len - 1) * 8;
@@ -87,7 +90,9 @@ class BloomFilterPolicy : public FilterPolicy {
     const uint32_t delta = (h >> 17) | (h << 15);  // Rotate right 17 bits
     for (size_t j = 0; j < k; j++) {
       const uint32_t bitpos = h % bits;
-      if ((array[bitpos / 8] & (1 << (bitpos % 8))) == 0) return false;
+      if ((array[bitpos / 8] & (1 << (bitpos % 8))) == 0) {
+        return false;
+      }
       h += delta;
     }
     return true;

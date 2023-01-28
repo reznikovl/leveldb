@@ -1657,5 +1657,33 @@ int DBImpl::CompactLevel0Files() {
   return 0;
 }
 
+std::vector<std::vector<long>> DBImpl::GetExactEntriesPerRun() {
+  MutexLock l(&mutex_);
+  Version* base = versions_->current();
+  std::vector<FileMetaData*> files = base->GetAllFiles();
+
+  std::vector<std::vector<long>> result(config::kNumLevels);
+  for (auto file : files) {
+    Iterator* iter =
+        table_cache_->NewIterator(ReadOptions(), file->number, file->file_size);
+    iter->SeekToFirst();
+    long temp = 0;
+    for(; iter->Valid(); iter->Next()) {
+      temp++;
+    }
+
+    if(file->level == 0) {
+      result[0].push_back(temp);
+    }
+    else if (result[file->level].empty()) {
+      result[file->level].push_back(temp);
+    }
+    else { // levels > 0 will have one entry
+      result[file->level][0] += temp;
+    }
+    delete iter;
+  }
+  return result;
+}
 }
  // namespace leveldb

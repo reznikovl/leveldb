@@ -110,6 +110,8 @@ class LEVELDB_EXPORT DB {
    */
   virtual std::vector<std::vector<long>> GetBytesPerRun() = 0;
 
+  virtual std::vector<std::vector<long>> GetExactEntriesPerRun() = 0;
+
   /**
    * USE OFFLINE (clean database start with no ongoing activity) ONLY!
    * @brief forces the given filter on all runs

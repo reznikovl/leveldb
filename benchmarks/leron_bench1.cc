@@ -32,9 +32,9 @@ void read_range(
     leveldb::DB* db, leveldb::ReadOptions read_options, int num_repetitions) {
   std::vector<std::pair<std::string, std::string>> result;
   static const char alphanum[] =
-      // "0123456789"
+      "0123456789";
       // "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "abcdefghijklmnopqrstuvwxyz";
+      // "abcdefghijklmnopqrstuvwxyz";
   auto it = db->NewIterator(read_options);
   for(int i = 0; i < num_repetitions; i++) {
     for (auto i : alphanum) {
@@ -54,9 +54,8 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
   for (auto& i : entries_per_level) {
     total_entries += i;
   }
-  std::cout << "Total bytes found is " << total_entries * key_size << std::endl;
-  long delta = total_entries * bits_per_entry_equivalent * 0.9;
-  std::cout << "Adjusting for metadata, approx number of entries is " << delta / bits_per_entry_equivalent << std::endl;
+  long delta = total_entries * bits_per_entry_equivalent;
+  std::cout << "Entries count is " << total_entries << std::endl;
   std::vector<long> runs_entries;
   std::vector<long> runs_bits;
   for (long i = 0; i < entries_per_level.size(); i++) {
@@ -90,9 +89,9 @@ std::vector<long> run_algorithm_c(std::vector<long> entries_per_level,
 
 std::string gen_random(const int len) {
   static const char alphanum[] =
-      // "0123456789"
+      "0123456789";
       // "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-      "abcdefghijklmnopqrstuvwxyz";
+      // "abcdefghijklmnopqrstuvwxyz";
   std::string tmp_s;
   tmp_s.reserve(len);
 
@@ -144,9 +143,9 @@ int main(int argc, char** argv) {
   leveldb::Options options;
   int key_size = 128;
   int num_megabytes_to_write = 2048;
-  int bits_per_entry_filter = 5;
+  int bits_per_entry_filter = 2;
   options.base_scaling_factor = 2;
-  options.ratio_diff = 1;
+  options.ratio_diff = 1.0/2;
 
   // other options to set:
   // options.block_size = 4 * 1024;
@@ -156,15 +155,14 @@ int main(int argc, char** argv) {
   int read_seed = write_seed + 1;
   leveldb::ReadOptions read_options;
   read_options.fill_cache = false;
-
-  
+  std::string db_name = "/tmp/COPY-bench-2_gb-2_base-1_2_ratio";
 
   bool seed_database = strcmp(argv[1], "1") == 0;
   bool use_monkey = strcmp(argv[2], "1") == 0;
   leveldb::DB* db;
-  options.create_if_missing = true;
-  
-  leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  // options.create_if_missing = true;
+
+  leveldb::Status status = leveldb::DB::Open(options, db_name, &db);
 
   if (seed_database) {
     std::cout << "Seeding database..." << std::endl;
@@ -189,25 +187,39 @@ int main(int argc, char** argv) {
 
   //reopen db for bloom filter sizes
   delete db;
-  status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  status = leveldb::DB::Open(options, db_name, &db);
   db->CompactLevel0Files();
   sleep(5);
   std::cout << "Calculating bloom filters..." << std::endl;
 
-  std::vector<std::vector<long>> bytes_per_level_with_zeros = db->GetBytesPerRun();
+  // std::vector<std::vector<long>> bytes_per_level_with_zeros = db->GetBytesPerRun();
+  std::vector<std::vector<long>> entries_per_run_with_levels = db->GetExactEntriesPerRun();
+  // for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
+  //   for (int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
+  //     std::cout << "Level " << i << " run " << j
+  //               << " size: " << bytes_per_level_with_zeros[i][j] << std::endl;
+  //   }
+  //   if (bytes_per_level_with_zeros[i].size() == 0) {
+  //     break;
+  //   }
+
+  //   for(int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
+  //     entries_per_run.push_back(bytes_per_level_with_zeros[i][j] / key_size);
+  //   }
+  // }
   std::vector<long> entries_per_run;
-  for (long i = 0; i < bytes_per_level_with_zeros.size(); i++) {
-    for (int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
+  // flatten entries per run with levels and deal with 0s for Monkey
+  for (int i = 0; i < entries_per_run_with_levels.size(); i++) {
+    for(int j = 0; j < entries_per_run_with_levels[i].size(); j++) {
       std::cout << "Level " << i << " run " << j
-                << " size: " << bytes_per_level_with_zeros[i][j] << std::endl;
-    }
-    if (bytes_per_level_with_zeros[i].size() == 0) {
-      break;
+                << " size: " << entries_per_run_with_levels[i][j] << std::endl;
     }
 
-    for(int j = 0; j < bytes_per_level_with_zeros[i].size(); j++) {
-      entries_per_run.push_back(bytes_per_level_with_zeros[i][j] / key_size);
+    if (entries_per_run_with_levels[i].size() == 0) {
+      //necessary?
+      break;
     }
+    entries_per_run.insert(entries_per_run.end(), entries_per_run_with_levels[i].begin(), entries_per_run_with_levels[i].end());
   }
 
   std::vector<long> bits_per_key_per_level;
@@ -219,7 +231,7 @@ int main(int argc, char** argv) {
 
     // average filter size over all level 0 files
     int level0_allocated_bits = 0;
-    int num_level0_runs = bytes_per_level_with_zeros[0].size();
+    int num_level0_runs = entries_per_run_with_levels[0].size();
 
     for (int i = 0; i < num_level0_runs; i++) {
       level0_allocated_bits += bits_per_key_per_run[i];
@@ -240,7 +252,8 @@ int main(int argc, char** argv) {
   sleep(5);
   delete db;
   options.filter_policy = leveldb::NewBloomFilterPolicy(bits_per_key_per_level);
-  status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  // options.filter_policy =nullptr;
+  status = leveldb::DB::Open(options, db_name, &db);
   sleep(5);
   std::cout << "Forcing filters" << std::endl;
   db->ForceFilters();
@@ -250,7 +263,7 @@ int main(int argc, char** argv) {
   }
   delete db;
   sleep(5);
-  status = leveldb::DB::Open(options, "/tmp/testdb", &db);
+  status = leveldb::DB::Open(options, db_name, &db);
 
   std::cout << "Reading..." << std::endl;
 
