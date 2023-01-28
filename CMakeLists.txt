@@ -435,6 +435,7 @@ if(LEVELDB_BUILD_BENCHMARKS)
 
   if(NOT BUILD_SHARED_LIBS)
     leveldb_benchmark("benchmarks/db_bench.cc")
+    leveldb_benchmark("benchmarks/seed.cc")
     leveldb_benchmark("benchmarks/final_benchmark.cc")
   endif(NOT BUILD_SHARED_LIBS)
 

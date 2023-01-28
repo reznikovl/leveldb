@@ -63,7 +63,7 @@ static const char* FLAGS_benchmarks =
     "snappyuncomp,";
 
 // Number of key/values to place in database
-static int FLAGS_num = 1000000;
+static int FLAGS_num = 10000000;
 
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 static int FLAGS_reads = -1;
@@ -105,7 +105,7 @@ static int FLAGS_open_files = 0;
 
 // Bloom filter bits per key.
 // Negative means use default settings.
-static int FLAGS_bloom_bits = -1;
+static int FLAGS_bloom_bits = 1;
 
 // Common key prefix length.
 static int FLAGS_key_prefix = 0;
@@ -119,7 +119,7 @@ static bool FLAGS_use_existing_db = false;
 static bool FLAGS_reuse_logs = false;
 
 // If true, use compression.
-static bool FLAGS_compression = true;
+static bool FLAGS_compression = false;
 
 // Use the db with the following name.
 static const char* FLAGS_db = nullptr;
