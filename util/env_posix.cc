@@ -210,6 +210,10 @@ class PosixRandomAccessFile final : public RandomAccessFile {
       if (fd < 0) {
         return PosixError(filename_, errno);
       }
+      int status = ::fcntl(fd, F_NOCACHE, 1);
+      if (status < 0) {
+        return PosixError(filename_, errno);
+      }
     }
 
     assert(fd != -1);
@@ -388,7 +392,14 @@ class PosixWritableFile final : public WritableFile {
     if (fd < 0) {
       status = PosixError(dirname_, errno);
     } else {
-      status = SyncFd(fd, dirname_);
+      int s = ::fcntl(fd, F_NOCACHE, 1);
+      if (s < 0) {
+        status = PosixError(dirname_, errno);
+      }
+      else {
+        status = SyncFd(fd, dirname_);
+      }
+      
       ::close(fd);
     }
     return status;
@@ -538,6 +549,11 @@ class PosixEnv : public Env {
       *result = nullptr;
       return PosixError(filename, errno);
     }
+    int status = ::fcntl(fd, F_NOCACHE, 1);
+    if (status < 0) {
+      *result = nullptr;
+      return PosixError(filename, errno);
+    }
 
     *result = new PosixSequentialFile(filename, fd);
     return Status::OK();
@@ -548,6 +564,10 @@ class PosixEnv : public Env {
     *result = nullptr;
     int fd = ::open(filename.c_str(), O_RDONLY | kOpenBaseFlags);
     if (fd < 0) {
+      return PosixError(filename, errno);
+    }
+    int s = ::fcntl(fd, F_NOCACHE, 1);
+    if (s < 0) {
       return PosixError(filename, errno);
     }
 
@@ -584,6 +604,11 @@ class PosixEnv : public Env {
       *result = nullptr;
       return PosixError(filename, errno);
     }
+    int status = ::fcntl(fd, F_NOCACHE, 1);
+    if (status < 0) {
+      *result = nullptr;
+      return PosixError(filename, errno);
+    }
 
     *result = new PosixWritableFile(filename, fd);
     return Status::OK();
@@ -594,6 +619,12 @@ class PosixEnv : public Env {
     int fd = ::open(filename.c_str(),
                     O_APPEND | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {
+      *result = nullptr;
+      return PosixError(filename, errno);
+    }
+
+    int status = ::fcntl(fd, F_NOCACHE, 1);
+    if (status < 0) {
       *result = nullptr;
       return PosixError(filename, errno);
     }
@@ -666,6 +697,10 @@ class PosixEnv : public Env {
     if (fd < 0) {
       return PosixError(filename, errno);
     }
+    int status = ::fcntl(fd, F_NOCACHE, 1);
+    if (status < 0) {
+      return PosixError(filename, errno);
+    }
 
     if (!locks_.Insert(filename)) {
       ::close(fd);
@@ -724,6 +759,11 @@ class PosixEnv : public Env {
     int fd = ::open(filename.c_str(),
                     O_APPEND | O_WRONLY | O_CREAT | kOpenBaseFlags, 0644);
     if (fd < 0) {
+      *result = nullptr;
+      return PosixError(filename, errno);
+    }
+    int status = ::fcntl(fd, F_NOCACHE, 1);
+    if (status < 0) {
       *result = nullptr;
       return PosixError(filename, errno);
     }

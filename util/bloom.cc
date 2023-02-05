@@ -83,6 +83,7 @@ class BloomFilterPolicy : public FilterPolicy {
     if (k > 30) {
       // Reserved for potentially new encodings for short bloom filters.
       // Consider it a match.
+      // std::cout << "here3" << std::endl; 
       return true;
     }
 
