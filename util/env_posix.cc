@@ -39,6 +39,12 @@
 namespace leveldb {
 
 namespace {
+int mac_no_cache(int fd) {
+#if __APPLE__
+  return ::fcntl(fd, F_NOCACHE, 1);
+#endif
+return 0;
+}
 
 // Set by EnvPosixTestHelper::SetReadOnlyMMapLimit() and MaxOpenFiles().
 int g_open_read_only_file_limit = -1;
@@ -210,7 +216,7 @@ class PosixRandomAccessFile final : public RandomAccessFile {
       if (fd < 0) {
         return PosixError(filename_, errno);
       }
-      int status = ::fcntl(fd, F_NOCACHE, 1);
+      int status = mac_no_cache(fd);
       if (status < 0) {
         return PosixError(filename_, errno);
       }
@@ -392,7 +398,7 @@ class PosixWritableFile final : public WritableFile {
     if (fd < 0) {
       status = PosixError(dirname_, errno);
     } else {
-      int s = ::fcntl(fd, F_NOCACHE, 1);
+      int s = mac_no_cache(fd);
       if (s < 0) {
         status = PosixError(dirname_, errno);
       }
@@ -549,7 +555,7 @@ class PosixEnv : public Env {
       *result = nullptr;
       return PosixError(filename, errno);
     }
-    int status = ::fcntl(fd, F_NOCACHE, 1);
+    int status = mac_no_cache(fd);
     if (status < 0) {
       *result = nullptr;
       return PosixError(filename, errno);
@@ -566,7 +572,7 @@ class PosixEnv : public Env {
     if (fd < 0) {
       return PosixError(filename, errno);
     }
-    int s = ::fcntl(fd, F_NOCACHE, 1);
+    int s = mac_no_cache(fd);
     if (s < 0) {
       return PosixError(filename, errno);
     }
@@ -604,7 +610,7 @@ class PosixEnv : public Env {
       *result = nullptr;
       return PosixError(filename, errno);
     }
-    int status = ::fcntl(fd, F_NOCACHE, 1);
+    int status = mac_no_cache(fd);
     if (status < 0) {
       *result = nullptr;
       return PosixError(filename, errno);
@@ -623,7 +629,7 @@ class PosixEnv : public Env {
       return PosixError(filename, errno);
     }
 
-    int status = ::fcntl(fd, F_NOCACHE, 1);
+    int status = mac_no_cache(fd);
     if (status < 0) {
       *result = nullptr;
       return PosixError(filename, errno);
@@ -697,7 +703,7 @@ class PosixEnv : public Env {
     if (fd < 0) {
       return PosixError(filename, errno);
     }
-    int status = ::fcntl(fd, F_NOCACHE, 1);
+    int status = mac_no_cache(fd);
     if (status < 0) {
       return PosixError(filename, errno);
     }
@@ -762,7 +768,7 @@ class PosixEnv : public Env {
       *result = nullptr;
       return PosixError(filename, errno);
     }
-    int status = ::fcntl(fd, F_NOCACHE, 1);
+    int status = mac_no_cache(fd);
     if (status < 0) {
       *result = nullptr;
       return PosixError(filename, errno);
