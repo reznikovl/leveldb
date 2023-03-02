@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
    */
   bool use_monkey = true;
   bool seed = std::stoi(argv[1]);
-  int bpk = 1; // 0 should write nothing
+  int bpk = 5; // 0 should write nothing
   std::string db_name = argv[2];
   bool compact_l0 = std::stoi(argv[3]);
 

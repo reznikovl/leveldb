@@ -103,6 +103,8 @@ int main(int argc, char** argv) {
 
   leveldb::DB* db;
   options.create_if_missing = true;
+  std::vector<long> bloom{5, 5, 5, 5, 5, 5, 5};
+  options.filter_policy = leveldb::NewBloomFilterPolicy(bloom);
 
   leveldb::Status status = leveldb::DB::Open(options, "/tmp/testdb2", &db);
 

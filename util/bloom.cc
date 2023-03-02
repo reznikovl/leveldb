@@ -70,7 +70,6 @@ class BloomFilterPolicy : public FilterPolicy {
     // std::cout << "attempting to match" << std::endl;
     const size_t len = bloom_filter.size();
     if (len < 2) {
-      // std::cout << "here" << std::endl;
       return true;
     }
 
@@ -92,6 +91,7 @@ class BloomFilterPolicy : public FilterPolicy {
     for (size_t j = 0; j < k; j++) {
       const uint32_t bitpos = h % bits;
       if ((array[bitpos / 8] & (1 << (bitpos % 8))) == 0) {
+        // std::cout << "not finding" << std::endl;
         return false;
       }
       h += delta;
