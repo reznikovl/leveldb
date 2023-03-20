@@ -73,7 +73,7 @@ static double MaxBytesForLevel(const Options* options, int level, int max_level_
   // the level-0 compaction threshold based on number of files.
 
   // Result for level-0
-  double result = 10. * 1048576.0;
+  double result = 1048576.0;
   while (level >= 1) {
     double factor = options->base_scaling_factor *
                     pow(options->ratio_diff, -1 * (max_level_in_use - level));
@@ -1299,7 +1299,7 @@ Compaction* VersionSet::PickCompaction() {
   // We prefer compactions triggered by too much data in a level over
   // the compactions triggered by seeks.
   const bool size_compaction = (current_->compaction_score_ >= 1);
-  const bool seek_compaction = (current_->file_to_compact_ != nullptr);
+  const bool seek_compaction = false;
   if (size_compaction) {
     level = current_->compaction_level_;
     assert(level >= 0);
