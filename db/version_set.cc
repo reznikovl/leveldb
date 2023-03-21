@@ -73,8 +73,8 @@ static double MaxBytesForLevel(const Options* options, int level, int max_level_
   // the level-0 compaction threshold based on number of files.
 
   // Result for level-0
-  double result = 1048576.0;
-  while (level >= 1) {
+  double result =  10 * 1048576.0;
+  while (level > 1) {
     double factor = options->base_scaling_factor *
                     pow(options->ratio_diff, -1 * (max_level_in_use - level));
     result *= factor;
