@@ -1108,8 +1108,8 @@ void VersionSet::Finalize(Version* v) {
       best_score = score;
     }
   }
-  // delay the compaction on the last level
-  if (max_level_in_use != 0 && best_level == max_level_in_use){
+  // In Autumn delay the compaction on the last level
+  if (options_->ratio_diff != 1 && max_level_in_use != 0 && best_level == max_level_in_use){
     v->max_level_in_use_ += 1;
     assert(config::kNumLevels > v->max_level_in_use_);
     v->compaction_level_ = second_best_level;
