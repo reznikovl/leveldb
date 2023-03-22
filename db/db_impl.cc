@@ -518,10 +518,6 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
   {
     mutex_.Unlock();
     s = BuildTable(dbname_, env_, options_, table_cache_, iter, &meta);
-    if (meta.smallest.user_key().ToString() >=
-        meta.largest.user_key().ToString()) {
-      std::cout << "BAD smaller bigger than largest in OG code??" << std::endl;
-    }
     mutex_.Lock();
   }
 
@@ -739,10 +735,6 @@ void DBImpl::BackgroundCompaction() {
     // Move file to next level
     assert(c->num_input_files(0) == 1);
     FileMetaData* f = c->input(0, 0);
-    if (f->smallest.user_key().ToString() >=
-        f->largest.user_key().ToString()) {
-      std::cout << "BAD smaller bigger than largest in OG code 2??" << std::endl;
-    }
     c->edit()->RemoveFile(c->level(), f->number);
     c->edit()->AddFile(c->level() + 1, f->number, f->file_size, f->smallest,
                        f->largest);
