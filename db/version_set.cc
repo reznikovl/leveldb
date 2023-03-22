@@ -72,9 +72,9 @@ static double MaxBytesForLevel(const Options* options, int level, int max_level_
   // Note: the result for level zero is not really used since we set
   // the level-0 compaction threshold based on number of files.
 
-  // Result for level-0
+  // Result for level-0 and level-1
   double result = 10. * 1048576.0;
-  while (level >= 1) {
+  while (level > 1) {
     double factor = options->base_scaling_factor *
                     pow(options->ratio_diff, -1 * (max_level_in_use - level));
     result *= factor;
@@ -432,15 +432,15 @@ Status Version::Get(const ReadOptions& options, const LookupKey& k,
 }
 
 bool Version::UpdateStats(const GetStats& stats) {
-  FileMetaData* f = stats.seek_file;
-  if (f != nullptr) {
-    f->allowed_seeks--;
-    if (f->allowed_seeks <= 0 && file_to_compact_ == nullptr) {
-      file_to_compact_ = f;
-      file_to_compact_level_ = stats.seek_file_level;
-      return true;
-    }
-  }
+  // FileMetaData* f = stats.seek_file;
+  // if (f != nullptr) {
+  //   f->allowed_seeks--;
+  //   if (f->allowed_seeks <= 0 && file_to_compact_ == nullptr) {
+  //     file_to_compact_ = f;
+  //     file_to_compact_level_ = stats.seek_file_level;
+  //     return true;
+  //   }
+  // }
   return false;
 }
 
@@ -1065,17 +1065,18 @@ void VersionSet::Finalize(Version* v) {
   // Precomputed best level for next compaction
   int best_level = -1;
   double best_score = -1;
-  int max_level_in_use = -1;
-  for (int level = config::kNumLevels - 1; level >= 0; level--) {
+
+  int second_best_level = -1;
+  double second_best_score = -1;
+
+  for (int level = config::kNumLevels - 1; level > v->max_level_in_use_; level--) {
     if (!v->files_[level].empty()) {
-      max_level_in_use = level;
+      v->max_level_in_use_ = level;
       break;
     }
   }
-  if (max_level_in_use == -1) {
-    max_level_in_use = 0;
-  }
-
+  int max_level_in_use = v->max_level_in_use_; // avoid pointer access in while loop
+  if (max_level_in_use == -1) max_level_in_use = 0;
   for (int level = 0; level < config::kNumLevels - 1; level++) {
     double score;
     if (level == 0) {
@@ -1100,13 +1101,23 @@ void VersionSet::Finalize(Version* v) {
     }
 
     if (score > best_score) {
+      second_best_level = best_level;
+      second_best_score = best_score;
+
       best_level = level;
       best_score = score;
     }
   }
-
-  v->compaction_level_ = best_level;
-  v->compaction_score_ = best_score;
+  // delay the compaction on the last level
+  if (max_level_in_use != 0 && best_level == max_level_in_use){
+    v->max_level_in_use_ += 1;
+    assert(config::kNumLevels > v->max_level_in_use_);
+    v->compaction_level_ = second_best_level;
+    v->compaction_score_ = second_best_score;
+  } else{
+    v->compaction_level_ = best_level;
+    v->compaction_score_ = best_score;
+  }
 }
 
 Status VersionSet::WriteSnapshot(log::Writer* log) {
@@ -1299,7 +1310,8 @@ Compaction* VersionSet::PickCompaction() {
   // We prefer compactions triggered by too much data in a level over
   // the compactions triggered by seeks.
   const bool size_compaction = (current_->compaction_score_ >= 1);
-  const bool seek_compaction = (current_->file_to_compact_ != nullptr);
+  //const bool seek_compaction = (current_->file_to_compact_ != nullptr);
+  const bool seek_compaction  = false;
   if (size_compaction) {
     level = current_->compaction_level_;
     assert(level >= 0);

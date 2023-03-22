@@ -45,34 +45,47 @@
 //      sstables    -- Print sstable info
 //      heapprofile -- Dump a heap profile (if supported by this port)
 static const char* FLAGS_benchmarks =
-    "fillseq,"
-    "fillsync,"
+    // "fillsync,"
+    // "overwrite,"
+    // "readrandom,"
+    //"readrandom,"  // Extra run to allow previous compactions to quiesce
+    // "readseq,"
+    //"readreverse,"
+    // "compact,"
+    // "readrandom,"
+    //"readseq,"
+    //"readreverse,"
+    //"fill100K,"
+    // "crc32c,"
+    // "snappycomp,"
+    // "snappyuncomp,"
+    // "seekrandom,"
+    // "deletedb,"
+    //"seekordered,"
+
+    // "fillseq,"
+
     "fillrandom,"
-    "overwrite,"
     "readrandom,"
-    "readrandom,"  // Extra run to allow previous compactions to quiesce
-    "readseq,"
-    "readreverse,"
-    "compact,"
-    "readrandom,"
-    "readseq,"
-    "readreverse,"
-    "fill100K,"
-    "crc32c,"
-    "snappycomp,"
-    "snappyuncomp,";
+    "seekrandom,"
+    "seekrandomandnext10,"
+    "seekrandomandnext100,"
+    ;
 
 // Number of key/values to place in database
-static int FLAGS_num = 1000000;
+static int FLAGS_num = 2000000;
 
 // Number of read operations to do.  If negative, do FLAGS_num reads.
-static int FLAGS_reads = -1;
+static int FLAGS_reads = 1000000;
 
 // Number of concurrent threads to run.
 static int FLAGS_threads = 1;
 
 // Size of each value
-static int FLAGS_value_size = 100;
+//static int FLAGS_value_size = 40;
+//static int FLAGS_value_size = 100;
+static int FLAGS_value_size = 250;
+
 
 // Arrange to generate values that shrink to this fraction of
 // their original size after compression
@@ -119,7 +132,7 @@ static bool FLAGS_use_existing_db = false;
 static bool FLAGS_reuse_logs = false;
 
 // If true, use compression.
-static bool FLAGS_compression = true;
+static bool FLAGS_compression = false;
 
 // Use the db with the following name.
 static const char* FLAGS_db = nullptr;
@@ -467,6 +480,7 @@ class Benchmark {
         // filter_policy_(FLAGS_bloom_bits >= 0
         //                    ? NewBloomFilterPolicy(FLAGS_bloom_bits)
         //                    : nullptr),
+        filter_policy_(nullptr),
         db_(nullptr),
         num_(FLAGS_num),
         value_size_(FLAGS_value_size),
@@ -533,6 +547,7 @@ class Benchmark {
         method = &Benchmark::WriteSeq;
       } else if (name == Slice("fillrandom")) {
         fresh_db = true;
+        //write_options_.sync = true;
         method = &Benchmark::WriteRandom;
       } else if (name == Slice("overwrite")) {
         fresh_db = false;
@@ -557,6 +572,12 @@ class Benchmark {
         method = &Benchmark::ReadMissing;
       } else if (name == Slice("seekrandom")) {
         method = &Benchmark::SeekRandom;
+      }  else if (name == Slice("seekrandomandnext10")) {
+        method = &Benchmark::SeekRandomAndNext10;
+      } else if (name == Slice("seekrandomandnext100")) {
+        method = &Benchmark::SeekRandomAndNext100;
+      } else if (name == Slice("deletedb")) {
+        method = &Benchmark::DeleteDB;
       } else if (name == Slice("seekordered")) {
         method = &Benchmark::SeekOrdered;
       } else if (name == Slice("readhot")) {
@@ -776,6 +797,13 @@ class Benchmark {
     options.reuse_logs = FLAGS_reuse_logs;
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
+
+    // options.base_scaling_factor = 4;
+    // options.ratio_diff = 1;
+
+    options.base_scaling_factor = 4;
+    options.ratio_diff = 0.6;
+
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {
       std::fprintf(stderr, "open error: %s\n", s.ToString().c_str());
@@ -865,7 +893,7 @@ class Benchmark {
       thread->stats.FinishedSingleOp();
     }
     char msg[100];
-    std::snprintf(msg, sizeof(msg), "(%d of %d found)", found, num_);
+    std::snprintf(msg, sizeof(msg), "(%d of %d found)", found, reads_);
     thread->stats.AddMessage(msg);
   }
 
@@ -909,9 +937,61 @@ class Benchmark {
       thread->stats.FinishedSingleOp();
     }
     char msg[100];
-    snprintf(msg, sizeof(msg), "(%d of %d found)", found, num_);
+    snprintf(msg, sizeof(msg), "(%d of %d found)", found, reads_);
     thread->stats.AddMessage(msg);
   }
+
+  void DeleteDB(ThreadState* thread) {
+    delete db_;
+    thread->stats.FinishedSingleOp();
+  }
+
+  void SeekRandomAndNext10(ThreadState* thread) {
+    ReadOptions options;
+    int found = 0;
+    KeyBuffer key;
+    for (int i = 0; i < reads_; i++) {
+      Iterator* iter = db_->NewIterator(options);
+      const int k = thread->rand.Uniform(FLAGS_num);
+      key.Set(k);
+      iter->Seek(key.slice());
+      int nextOps = 10;
+      while (iter->Valid() && nextOps > 0){
+        --nextOps;
+        iter->Next();
+      }
+      if (nextOps != 0) ++found;
+      delete iter;
+      thread->stats.FinishedSingleOp();
+    }
+    char msg[100];
+    snprintf(msg, sizeof(msg), "(%d of %d invalid)", found, reads_);
+    thread->stats.AddMessage(msg);
+  }
+
+  void SeekRandomAndNext100(ThreadState* thread) {
+    ReadOptions options;
+    int found = 0;
+    KeyBuffer key;
+    for (int i = 0; i < reads_; i++) {
+      Iterator* iter = db_->NewIterator(options);
+      const int k = thread->rand.Uniform(FLAGS_num);
+      key.Set(k);
+      iter->Seek(key.slice());
+      int nextOps = 100;
+      while (iter->Valid() && nextOps > 0){
+        --nextOps;
+        iter->Next();
+      }
+      if (nextOps != 0) ++found;
+      delete iter;
+      thread->stats.FinishedSingleOp();
+    }
+    char msg[100];
+    snprintf(msg, sizeof(msg), "(%d of %d invalid)", found, reads_);
+    thread->stats.AddMessage(msg);
+  }
+
 
   void SeekOrdered(ThreadState* thread) {
     ReadOptions options;
@@ -928,7 +1008,7 @@ class Benchmark {
     }
     delete iter;
     char msg[100];
-    std::snprintf(msg, sizeof(msg), "(%d of %d found)", found, num_);
+    std::snprintf(msg, sizeof(msg), "(%d of %d found)", found, reads_);
     thread->stats.AddMessage(msg);
   }
 
