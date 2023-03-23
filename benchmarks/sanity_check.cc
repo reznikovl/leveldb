@@ -85,7 +85,7 @@ int main(int argc, char** argv) {
   leveldb::Options options;
 
   options.base_scaling_factor = 2;
-  options.ratio_diff = 1.0 / 3.0;
+  options.ratio_diff = 2.0 / 3.0;
 
   // other options to set:
   options.block_size = 4 * 1024;

@@ -123,7 +123,7 @@ class Version {
 
   class LevelFileNumIterator;
 
-  explicit Version(VersionSet* vset)
+  explicit Version(VersionSet* vset, int level)
       : vset_(vset),
         next_(this),
         prev_(this),
@@ -132,7 +132,7 @@ class Version {
         file_to_compact_level_(-1),
         compaction_score_(-1),
         compaction_level_(-1), 
-        max_level_in_use_(-1){}
+        max_level_in_use_(level){}
 
   Version(const Version&) = delete;
   Version& operator=(const Version&) = delete;

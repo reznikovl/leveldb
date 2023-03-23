@@ -778,9 +778,9 @@ VersionSet::VersionSet(const std::string& dbname, const Options* options,
       prev_log_number_(0),
       descriptor_file_(nullptr),
       descriptor_log_(nullptr),
-      dummy_versions_(this),
+      dummy_versions_(this, -1),
       current_(nullptr) {
-  AppendVersion(new Version(this));
+  AppendVersion(new Version(this, -1));
 }
 
 VersionSet::~VersionSet() {
@@ -822,7 +822,7 @@ Status VersionSet::LogAndApply(VersionEdit* edit, port::Mutex* mu) {
   edit->SetNextFile(next_file_number_);
   edit->SetLastSequence(last_sequence_);
 
-  Version* v = new Version(this);
+  Version* v = new Version(this, current_->max_level_in_use_);
   {
     Builder builder(this, current_);
     builder.Apply(edit);
@@ -998,7 +998,7 @@ Status VersionSet::Recover(bool* save_manifest) {
   }
 
   if (s.ok()) {
-    Version* v = new Version(this);
+    Version* v = new Version(this, -1);
     builder.SaveTo(v);
     // Install recovered version
     Finalize(v);
@@ -1065,18 +1065,18 @@ void VersionSet::Finalize(Version* v) {
   // Precomputed best level for next compaction
   int best_level = -1;
   double best_score = -1;
-
-  int second_best_level = -1;
-  double second_best_score = -1;
-
-  for (int level = config::kNumLevels - 1; level > v->max_level_in_use_; level--) {
-    if (!v->files_[level].empty()) {
-      v->max_level_in_use_ = level;
+  
+  int currMaxlevel = config::kNumLevels - 1;
+  while (currMaxlevel > v->max_level_in_use_){
+    if (!v->files_[currMaxlevel].empty()) {
+      // std::cout<<"find a higher level non empty: "<<currMaxlevel;
+      // std::cout<<" and v->max_level_in_use_ is: "<<v->max_level_in_use_<<std::endl;
+      v->max_level_in_use_ = std::max(currMaxlevel, v->max_level_in_use_);
       break;
     }
+    --currMaxlevel;
   }
-  int max_level_in_use = v->max_level_in_use_; // avoid pointer access in while loop
-  if (max_level_in_use == -1) max_level_in_use = 0;
+
   for (int level = 0; level < config::kNumLevels - 1; level++) {
     double score;
     if (level == 0) {
@@ -1097,23 +1097,20 @@ void VersionSet::Finalize(Version* v) {
       // Compute the ratio of current size to size limit.
       const uint64_t level_bytes = TotalFileSize(v->files_[level]);
       score =
-          static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level, max_level_in_use);
+          static_cast<double>(level_bytes) / MaxBytesForLevel(options_, level, currMaxlevel);
     }
 
     if (score > best_score) {
-      second_best_level = best_level;
-      second_best_score = best_score;
-
       best_level = level;
       best_score = score;
     }
   }
-  // In Autumn delay the compaction on the last level
-  if (options_->ratio_diff != 1 && max_level_in_use != 0 && best_level == max_level_in_use){
-    v->max_level_in_use_ += 1;
+  // In Autumn delay the compaction and check again
+  if (options_->ratio_diff != 1 && currMaxlevel> 0 && best_level == currMaxlevel){
+    v->max_level_in_use_ = currMaxlevel + 1;
+    //std::cout<<"v->max_level_in_use_: "<<v->max_level_in_use_<<std::endl;
     assert(config::kNumLevels > v->max_level_in_use_);
-    v->compaction_level_ = second_best_level;
-    v->compaction_score_ = second_best_score;
+    Finalize(v);
   } else{
     v->compaction_level_ = best_level;
     v->compaction_score_ = best_score;

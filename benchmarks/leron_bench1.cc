@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
   int num_megabytes_to_write = 2048;
   int bits_per_entry_filter = 2;
   options.base_scaling_factor = 2;
-  options.ratio_diff = 1.0/2;
+  options.ratio_diff = 2.0/3;
 
   // other options to set:
   // options.block_size = 4 * 1024;
