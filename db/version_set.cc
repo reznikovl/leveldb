@@ -1065,6 +1065,9 @@ void VersionSet::Finalize(Version* v) {
   // Precomputed best level for next compaction
   int best_level = -1;
   double best_score = -1;
+
+  int sec_best_level = -1;
+  double sec_best_score = -1;
   
   int currMaxlevel = config::kNumLevels - 1;
   while (currMaxlevel > v->max_level_in_use_){
@@ -1101,16 +1104,22 @@ void VersionSet::Finalize(Version* v) {
     }
 
     if (score > best_score) {
+      sec_best_level = best_level;
+      sec_best_score = best_score;
+
       best_level = level;
       best_score = score;
+    } else if (score > sec_best_score){
+      sec_best_level = level;
+      sec_best_score = score;
     }
   }
-  // In Autumn delay the compaction and check again
-  if (options_->ratio_diff != 1 && currMaxlevel> 0 && best_level == currMaxlevel){
+  // In Autumn delay the compaction
+  if (options_->ratio_diff != 1 && currMaxlevel > 0 && best_level == currMaxlevel){
     v->max_level_in_use_ = currMaxlevel + 1;
     //std::cout<<"v->max_level_in_use_: "<<v->max_level_in_use_<<std::endl;
-    assert(config::kNumLevels > v->max_level_in_use_);
-    Finalize(v);
+    v->compaction_level_ = sec_best_level;
+    v->compaction_score_ = sec_best_score;
   } else{
     v->compaction_level_ = best_level;
     v->compaction_score_ = best_score;
