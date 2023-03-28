@@ -101,21 +101,22 @@ int main(int argc, char** argv) {
    * Arg1: 1 to seed, 0 for normal run
    * Arg2: db name
    * Arg3: compact L0
-   * Arg4: Megabytes to write
-   * Arg5: Base scaling factor
-   * Arg6: Ratio Difference
-   * Arg7: key size
+   * Arg4: Use Monkey
+   * Arg5: Megabytes to write
+   * Arg6: Base scaling factor
+   * Arg7: Ratio Difference
+   * Arg8: key size
    */
-  bool use_monkey = true;
+  bool use_monkey = std::stoi(argv[4]);
   bool seed = std::stoi(argv[1]);
-  int bpk = 5; // 0 should write nothing
+  int bpk = 2; // 0 should write nothing
   std::string db_name = argv[2];
   bool compact_l0 = std::stoi(argv[3]);
 
   leveldb::Options options;
   if (seed) {
-    options.ratio_diff = std::stod(argv[6]);
-    options.base_scaling_factor = std::stoi(argv[5]);
+    options.ratio_diff = std::stod(argv[7]);
+    options.base_scaling_factor = std::stoi(argv[6]);
   }
   
   
@@ -133,8 +134,8 @@ int main(int argc, char** argv) {
   }
 
   if (seed) {
-    int key_size = std::stoi(argv[7]);
-    int num_megabytes_to_write = std::stoi(argv[4]);
+    int key_size = std::stoi(argv[8]);
+    int num_megabytes_to_write = std::stoi(argv[5]);
     int write_seed = 42;
     std::cout << "Seeding database with " << num_megabytes_to_write << " mb"<< std::endl;
     srand(write_seed);

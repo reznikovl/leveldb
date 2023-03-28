@@ -439,6 +439,7 @@ if(LEVELDB_BUILD_BENCHMARKS)
     leveldb_benchmark("benchmarks/sanity_check.cc")
     leveldb_benchmark("benchmarks/sanity_check_2.cc")
     leveldb_benchmark("benchmarks/seed.cc")
+    leveldb_benchmark("benchmarks/get_space_amplification.cc")
   endif(NOT BUILD_SHARED_LIBS)
 
   check_library_exists(sqlite3 sqlite3_open "" HAVE_SQLITE3)
