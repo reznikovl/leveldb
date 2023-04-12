@@ -538,6 +538,11 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
     }
     edit->AddFile(level, meta.number, meta.file_size, meta.smallest,
                   meta.largest);
+    if (level == 0) {
+      // cache level 0: reference memtable
+      level0cache_[meta.number] = mem;
+      mem->Ref();
+    }
   }
   meta.level = level;
 
@@ -735,6 +740,13 @@ void DBImpl::BackgroundCompaction() {
     // Move file to next level
     assert(c->num_input_files(0) == 1);
     FileMetaData* f = c->input(0, 0);
+
+    if (c->level() == 0) {
+      assert(level0cache_.find(f->number) != level0cache_.end());
+      level0cache_[f->number]->Unref();
+      level0cache_.erase(f->number);
+    }
+
     c->edit()->RemoveFile(c->level(), f->number);
     c->edit()->AddFile(c->level() + 1, f->number, f->file_size, f->smallest,
                        f->largest);
@@ -1090,6 +1102,9 @@ Iterator* DBImpl::NewInternalIterator(const ReadOptions& options,
     list.push_back(imm_->NewIterator());
     imm_->Ref();
   }
+  for (auto pair : level0cache_) {
+    list.push_back(pair.second->NewIterator());
+  }
   versions_->current()->AddIterators(options, &list);
   Iterator* internal_iter =
       NewMergingIterator(&internal_comparator_, &list[0], list.size());
@@ -1114,6 +1129,15 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
   return versions_->MaxNextLevelOverlappingBytes();
 }
 
+bool DBImpl::check_l0_cache(const LookupKey& key, std::string* value, Status* s) {
+  for (auto pair : level0cache_) {
+    if (pair.second->Get(key, value, s)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 Status DBImpl::Get(const ReadOptions& options, const Slice& key,
                    std::string* value) {
   Status s;
@@ -1132,6 +1156,9 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   mem->Ref();
   if (imm != nullptr) imm->Ref();
   current->Ref();
+  for(auto pair : level0cache_) {
+    pair.second->Ref();
+  }
 
   bool have_stat_update = false;
   Version::GetStats stats;
@@ -1144,6 +1171,8 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
     if (mem->Get(lkey, value, &s)) {
       // Done
     } else if (imm != nullptr && imm->Get(lkey, value, &s)) {
+      // Done
+    } else if (check_l0_cache(lkey, value, &s)) {
       // Done
     } else {
       s = current->Get(options, lkey, value, &stats);
@@ -1158,6 +1187,9 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   mem->Unref();
   if (imm != nullptr) imm->Unref();
   current->Unref();
+  for (auto pair : level0cache_) {
+    pair.second->Unref();
+  }
   return s;
 }
 
@@ -1598,56 +1630,61 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
   pending_outputs_.erase(meta.number);
   edit->AddFile(old_meta->level, meta.number, meta.file_size, meta.smallest, meta.largest);
   edit->RemoveFile(old_meta->level, old_meta->number);
+  if (old_meta->level == 0) {
+    assert(level0cache_.find(old_meta->level) != level0cache_.end());
+    level0cache_[meta.number] = level0cache_[old_meta->number];
+    level0cache_.erase(old_meta->number);
+  }
   return 0;
 }
 
-int DBImpl::CompactLevel0Files() {
-  MutexLock l(&mutex_);
-  VersionEdit edit;
-  Version* base = versions_->current();
+// int DBImpl::CompactLevel0Files() {
+//   MutexLock l(&mutex_);
+//   VersionEdit edit;
+//   Version* base = versions_->current();
   
-  std::vector<Iterator *> iterators;
-  auto files = base->GetAllFiles();
-  std::vector<uint64_t> level_0_numbers;
-  std::vector<InternalKey> largest_keys;
-  for(auto file : files) {
-    if (file->level == 0) {
-      pending_outputs_.insert(file->number);
-      Iterator* iter = table_cache_->NewIterator(ReadOptions(), file->number, file->file_size);
-      iterators.push_back(iter);
-      level_0_numbers.push_back(file->number);
-      largest_keys.push_back(file->largest);
-    }
-  }
+//   std::vector<Iterator *> iterators;
+//   auto files = base->GetAllFiles();
+//   std::vector<uint64_t> level_0_numbers;
+//   std::vector<InternalKey> largest_keys;
+//   for(auto file : files) {
+//     if (file->level == 0) {
+//       // pending_outputs_.insert(file->number);
+//       Iterator* iter = table_cache_->NewIterator(ReadOptions(), file->number, file->file_size);
+//       iterators.push_back(iter);
+//       level_0_numbers.push_back(file->number);
+//       largest_keys.push_back(file->largest);
+//       level0cache_.erase(file->number);
+//     }
+//   }
 
-  if (iterators.size() == 0) {
-    return -1;
-  }
+//   if (iterators.size() == 0) {
+//     return -1;
+//   }
 
-  Iterator* new_it = NewMergingIterator(&internal_comparator_, &iterators[0],
-                                        iterators.size());
-  FileMetaData meta;
-  meta.level = 0;
-  meta.number = versions_->NewFileNumber();
+//   Iterator* new_it = NewMergingIterator(&internal_comparator_, &iterators[0],
+//                                         iterators.size());
+//   FileMetaData meta;
+//   meta.level = 0;
+//   meta.number = versions_->NewFileNumber();
 
-  Status s = BuildTable(dbname_, env_, options_, table_cache_, new_it, &meta);
+//   Status s = BuildTable(dbname_, env_, options_, table_cache_, new_it, &meta);
 
-  edit.AddFile(0, meta.number, meta.file_size, meta.smallest, meta.largest);
-  for(auto file_num : level_0_numbers) {
-    edit.RemoveFile(0, file_num);
-  }
+//   edit.AddFile(0, meta.number, meta.file_size, meta.smallest, meta.largest);
+//   for(auto file_num : level_0_numbers) {
+//     edit.RemoveFile(0, file_num);
+//   }
 
-  s = versions_->LogAndApply(&edit, &mutex_);
-  if (s.ok()) {
-    RemoveObsoleteFiles();
-  } else {
-    std::cout << "problem" << std::endl;
-  }
-  delete new_it;
-  pending_outputs_.erase(meta.number);
+//   s = versions_->LogAndApply(&edit, &mutex_);
+//   if (s.ok()) {
+//     RemoveObsoleteFiles();
+//   } else {
+//     std::cout << "problem" << std::endl;
+//   }
+//   delete new_it;
 
-  return 0;
-}
+//   return 0;
+// }
 
 std::vector<std::vector<long>> DBImpl::GetExactEntriesPerRun() {
   MutexLock l(&mutex_);

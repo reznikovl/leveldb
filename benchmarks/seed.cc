@@ -100,7 +100,7 @@ int main(int argc, char** argv) {
   /**
    * Arg1: 1 to seed, 0 for normal run
    * Arg2: db name
-   * Arg3: compact L0
+   * Arg3: compact L0 ### DEPRECATED ###
    * Arg4: Use Monkey
    * Arg5: Megabytes to write
    * Arg6: Base scaling factor
@@ -148,15 +148,15 @@ int main(int argc, char** argv) {
     std::cout << "Not seeding" << std::endl;
   }
 
-  if (compact_l0) {
-    std::cout << "Compacting L0 files..." << std::endl;
-    sleep(3);
-    db->CompactLevel0Files();
-    sleep(3);
-  }
-  else {
-    std::cout << "Not compacting L0" << std::endl;
-  }
+  // if (compact_l0) {
+  //   std::cout << "Compacting L0 files..." << std::endl;
+  //   sleep(3);
+  //   db->CompactLevel0Files();
+  //   sleep(3);
+  // }
+  // else {
+  //   std::cout << "Not compacting L0" << std::endl;
+  // }
 
 
   if (bpk == 0) {

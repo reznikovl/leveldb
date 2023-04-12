@@ -260,11 +260,11 @@ Iterator* Version::NewConcatenatingIterator(const ReadOptions& options,
 
 void Version::AddIterators(const ReadOptions& options,
                            std::vector<Iterator*>* iters) {
-  // Merge all level zero files together since they may overlap
-  for (size_t i = 0; i < files_[0].size(); i++) {
-    iters->push_back(vset_->table_cache_->NewIterator(
-        options, files_[0][i]->number, files_[0][i]->file_size));
-  }
+  // Don't touch level 0 files
+  // for (size_t i = 0; i < files_[0].size(); i++) {
+  //   iters->push_back(vset_->table_cache_->NewIterator(
+  //       options, files_[0][i]->number, files_[0][i]->file_size));
+  // }
 
   // For levels > 0, we can use a concatenating iterator that sequentially
   // walks through the non-overlapping files in the level, opening them
@@ -314,24 +314,25 @@ void Version::ForEachOverlapping(Slice user_key, Slice internal_key, void* arg,
                                  bool (*func)(void*, int, FileMetaData*)) {
   const Comparator* ucmp = vset_->icmp_.user_comparator();
 
-  // Search level-0 in order from newest to oldest.
-  std::vector<FileMetaData*> tmp;
-  tmp.reserve(files_[0].size());
-  for (uint32_t i = 0; i < files_[0].size(); i++) {
-    FileMetaData* f = files_[0][i];
-    if (ucmp->Compare(user_key, f->smallest.user_key()) >= 0 &&
-        ucmp->Compare(user_key, f->largest.user_key()) <= 0) {
-      tmp.push_back(f);
-    }
-  }
-  if (!tmp.empty()) {
-    std::sort(tmp.begin(), tmp.end(), NewestFirst);
-    for (uint32_t i = 0; i < tmp.size(); i++) {
-      if (!(*func)(arg, 0, tmp[i])) {
-        return;
-      }
-    }
-  }
+  // No longer need to search level 0
+
+  // std::vector<FileMetaData*> tmp;
+  // tmp.reserve(files_[0].size());
+  // for (uint32_t i = 0; i < files_[0].size(); i++) {
+  //   FileMetaData* f = files_[0][i];
+  //   if (ucmp->Compare(user_key, f->smallest.user_key()) >= 0 &&
+  //       ucmp->Compare(user_key, f->largest.user_key()) <= 0) {
+  //     tmp.push_back(f);
+  //   }
+  // }
+  // if (!tmp.empty()) {
+  //   std::sort(tmp.begin(), tmp.end(), NewestFirst);
+  //   for (uint32_t i = 0; i < tmp.size(); i++) {
+  //     if (!(*func)(arg, 0, tmp[i])) {
+  //       return;
+  //     }
+  //   }
+  // }
 
   // Search other levels.
   for (int level = 1; level < config::kNumLevels; level++) {

@@ -124,7 +124,7 @@ class LEVELDB_EXPORT DB {
    * @brief merges all level 0 files into one single sorted run
    * @return status
    */
-  virtual int CompactLevel0Files() = 0;
+  // virtual int CompactLevel0Files() = 0;
 
   // Release a previously acquired snapshot.  The caller must not
   // use "snapshot" after this call.

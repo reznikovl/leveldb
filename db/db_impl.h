@@ -9,6 +9,7 @@
 #include <deque>
 #include <set>
 #include <string>
+#include <unordered_map>
 
 #include "db/dbformat.h"
 #include "db/log_writer.h"
@@ -52,7 +53,7 @@ class DBImpl : public DB {
   std::vector<std::vector<long>> GetBytesPerRun() override;
   int ForceFilters() override;
   int RewriteTable(FileMetaData* old_meta, VersionEdit* edit, Version* base);
-  int CompactLevel0Files() override;
+  // int CompactLevel0Files() override;
   std::vector<std::vector<long>> GetExactEntriesPerRun() override;
 
       // Extra methods (for testing) that are not in the public DB interface
@@ -183,6 +184,8 @@ class DBImpl : public DB {
   MemTable* mem_;
   MemTable* imm_ GUARDED_BY(mutex_);  // Memtable being compacted
   std::atomic<bool> has_imm_;         // So bg thread can detect non-null imm_
+  std::unordered_map<uint64_t, MemTable*> level0cache_;
+  bool check_l0_cache(const LookupKey& key, std::string* value, Status* s);
   WritableFile* logfile_;
   uint64_t logfile_number_ GUARDED_BY(mutex_);
   log::Writer* log_;

@@ -114,16 +114,16 @@ int main(int argc, char** argv) {
         std::cout << "Oops" << std::endl;
     }
   }
-  sleep(3);
-  db->CompactLevel0Files();
-  sleep(3);
-  delete db;
-  std::vector<long> policy = {2, 0, 1, 1, 1, 1, 1};
-  options.filter_policy = leveldb::NewBloomFilterPolicy(policy);
-  leveldb::DB::Open(options, "/tmp/testdb2", &db);
-  sleep(3);
-  db->ForceFilters();
-  sleep(3);
+  // sleep(3);
+  // db->CompactLevel0Files();
+  // sleep(3);
+  // delete db;
+  // std::vector<long> policy = {2, 0, 1, 1, 1, 1, 1};
+  // options.filter_policy = leveldb::NewBloomFilterPolicy(policy);
+  // leveldb::DB::Open(options, "/tmp/testdb2", &db);
+  // sleep(3);
+  // db->ForceFilters();
+  // sleep(3);
   
 
   for(int i = 1000001; i > 0; i--) {

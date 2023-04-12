@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
     }
   }
   sleep(10);
-  db->CompactLevel0Files();
+  // db->CompactLevel0Files();
   sleep(10);
   std::vector<std::vector<long>> bytes_per_level_with_zeros =
       db->GetBytesPerRun();

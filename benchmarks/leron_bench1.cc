@@ -188,7 +188,7 @@ int main(int argc, char** argv) {
   //reopen db for bloom filter sizes
   delete db;
   status = leveldb::DB::Open(options, db_name, &db);
-  db->CompactLevel0Files();
+  // db->CompactLevel0Files();
   sleep(5);
   std::cout << "Calculating bloom filters..." << std::endl;
 
