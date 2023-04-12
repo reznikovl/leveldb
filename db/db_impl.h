@@ -184,8 +184,9 @@ class DBImpl : public DB {
   MemTable* mem_;
   MemTable* imm_ GUARDED_BY(mutex_);  // Memtable being compacted
   std::atomic<bool> has_imm_;         // So bg thread can detect non-null imm_
-  std::unordered_map<uint64_t, MemTable*> level0cache_;
+  std::unordered_map<uint64_t, MemTable*> level0cache_ GUARDED_BY(mutex_);
   bool check_l0_cache(const LookupKey& key, std::string* value, Status* s);
+  void reconstruct_l0_cache();
   WritableFile* logfile_;
   uint64_t logfile_number_ GUARDED_BY(mutex_);
   log::Writer* log_;

@@ -114,16 +114,14 @@ int main(int argc, char** argv) {
         std::cout << "Oops" << std::endl;
     }
   }
-  // sleep(3);
-  // db->CompactLevel0Files();
-  // sleep(3);
-  // delete db;
-  // std::vector<long> policy = {2, 0, 1, 1, 1, 1, 1};
-  // options.filter_policy = leveldb::NewBloomFilterPolicy(policy);
-  // leveldb::DB::Open(options, "/tmp/testdb2", &db);
-  // sleep(3);
-  // db->ForceFilters();
-  // sleep(3);
+
+  delete db;
+  std::vector<long> policy = {2, 0, 1, 1, 1, 1, 1};
+  options.filter_policy = leveldb::NewBloomFilterPolicy(policy);
+  leveldb::DB::Open(options, "/tmp/testdb2", &db);
+  sleep(3);
+  db->ForceFilters();
+  sleep(3);
   
 
   for(int i = 1000001; i > 0; i--) {
@@ -138,8 +136,7 @@ int main(int argc, char** argv) {
         std::cout << "Error on key " << i << std::endl;
     }
   }
-  std::cout << "We gucci?" << std::endl;
-  
+  std::cout << "Seemed like it worked? (Error on 1000001 expected)" << std::endl;
 
   // std::vector<std::pair<leveldb::Slice, std::string>> result;
 

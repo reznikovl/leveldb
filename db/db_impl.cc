@@ -540,7 +540,7 @@ Status DBImpl::WriteLevel0Table(MemTable* mem, VersionEdit* edit,
                   meta.largest);
     if (level == 0) {
       // cache level 0: reference memtable
-      level0cache_[meta.number] = mem;
+      level0cache_.insert({meta.number, mem});
       mem->Ref();
     }
   }
@@ -743,7 +743,7 @@ void DBImpl::BackgroundCompaction() {
 
     if (c->level() == 0) {
       assert(level0cache_.find(f->number) != level0cache_.end());
-      level0cache_[f->number]->Unref();
+      level0cache_.at(f->number)->Unref();
       level0cache_.erase(f->number);
     }
 
@@ -1514,6 +1514,23 @@ Status DB::Delete(const WriteOptions& opt, const Slice& key) {
 
 DB::~DB() = default;
 
+void DBImpl::reconstruct_l0_cache() {
+  std::vector<FileMetaData*> files = versions_->current()->GetAllFiles();
+  for(auto file : files) {
+    if (file->level == 0) {
+      MemTable *curr = new MemTable(internal_comparator_);
+      curr->Ref();
+      Iterator *it = table_cache_->NewIterator(ReadOptions(), file->number, file->file_size);
+      it->SeekToFirst();
+      for(; it->Valid(); it->Next()) {
+        curr->Add(0, kTypeValue, it->key(), it->value());
+      }
+      delete it;
+      level0cache_.insert({file->number, curr});
+    }
+  }
+}
+
 Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   *dbptr = nullptr;
 
@@ -1523,6 +1540,10 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   // Recover handles create_if_missing, error_if_exists
   bool save_manifest = false;
   Status s = impl->Recover(&edit, &save_manifest);
+
+  // Reconstruct level 0 cache
+  impl->reconstruct_l0_cache();
+
   if (s.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
     uint64_t new_log_number = impl->versions_->NewFileNumber();
@@ -1631,8 +1652,8 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
   edit->AddFile(old_meta->level, meta.number, meta.file_size, meta.smallest, meta.largest);
   edit->RemoveFile(old_meta->level, old_meta->number);
   if (old_meta->level == 0) {
-    assert(level0cache_.find(old_meta->level) != level0cache_.end());
-    level0cache_[meta.number] = level0cache_[old_meta->number];
+    assert(level0cache_.find(old_meta->number) != level0cache_.end());
+    level0cache_.insert({meta.number, level0cache_.at(old_meta->number)});
     level0cache_.erase(old_meta->number);
   }
   return 0;
