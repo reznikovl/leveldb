@@ -1165,14 +1165,17 @@ int VersionSet::NumLevelFiles(int level) const {
 
 const char* VersionSet::LevelSummary(LevelSummaryStorage* scratch) const {
   // Update code if kNumLevels changes
-  static_assert(config::kNumLevels == 10, "");
+  static_assert(config::kNumLevels == 15, "");
   std::snprintf(
       scratch->buffer, sizeof(scratch->buffer), "files[ %d %d %d %d %d %d %d ]",
       int(current_->files_[0].size()), int(current_->files_[1].size()),
       int(current_->files_[2].size()), int(current_->files_[3].size()),
       int(current_->files_[4].size()), int(current_->files_[5].size()),
       int(current_->files_[6].size()), int(current_->files_[7].size()),
-      int(current_->files_[8].size()), int(current_->files_[9].size()));
+      int(current_->files_[8].size()), int(current_->files_[9].size()),
+      int(current_->files_[10].size()), int(current_->files_[11].size()),
+      int(current_->files_[12].size()), int(current_->files_[13].size()),
+      int(current_->files_[14].size()), int(current_->files_[15].size()));
   return scratch->buffer;
 }
 
