@@ -1525,6 +1525,7 @@ void DBImpl::reconstruct_l0_cache() {
   std::vector<FileMetaData*> files = versions_->current()->GetAllFiles();
   for(auto file : files) {
     if (file->level == 0) {
+      //std::cout<<"L0 file found\n";
       MemTable *curr = new MemTable(internal_comparator_);
       curr->Ref();
       Iterator *it = table_cache_->NewIterator(ReadOptions(), file->number, file->file_size);
@@ -1548,8 +1549,6 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   bool save_manifest = false;
   Status s = impl->Recover(&edit, &save_manifest);
 
-  // Reconstruct level 0 cache
-  impl->reconstruct_l0_cache();
 
   if (s.ok() && impl->mem_ == nullptr) {
     // Create new log and a corresponding memtable.
@@ -1575,6 +1574,10 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
     impl->RemoveObsoleteFiles();
     // impl->MaybeScheduleCompaction();
   }
+
+  // Reconstruct level 0 cache
+  impl->reconstruct_l0_cache();
+  
   impl->mutex_.Unlock();
   if (s.ok()) {
     assert(impl->mem_ != nullptr);
