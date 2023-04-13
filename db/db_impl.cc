@@ -1523,17 +1523,22 @@ DB::~DB() = default;
 
 void DBImpl::reconstruct_l0_cache() {
   std::vector<FileMetaData*> files = versions_->current()->GetAllFiles();
+  ParsedInternalKey ikey;
   for(auto file : files) {
     if (file->level == 0) {
       //std::cout<<"L0 file found\n";
       MemTable *curr = new MemTable(internal_comparator_);
       curr->Ref();
       Iterator *it = table_cache_->NewIterator(ReadOptions(), file->number, file->file_size);
-      it->SeekToFirst();
-      for(; it->Valid(); it->Next()) {
-        curr->Add(0, kTypeValue, it->key(), it->value());
+      Iterator* temp[1] = {it};
+      Iterator* internal_iter = NewMergingIterator(&internal_comparator_, &temp[0], 1);
+      internal_iter->SeekToFirst();
+      for(; internal_iter->Valid(); internal_iter->Next()) {
+        Slice key = internal_iter->key();
+        if (!ParseInternalKey(key, &ikey)){
+          curr->Add(ikey.sequence, ikey.type, ikey.user_key, internal_iter->value());
+        }
       }
-      delete it;
       level0cache_.insert({file->number, curr});
     }
   }
