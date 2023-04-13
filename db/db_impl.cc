@@ -740,19 +740,17 @@ void DBImpl::BackgroundCompaction() {
     // Move file to next level
     assert(c->num_input_files(0) == 1);
     FileMetaData* f = c->input(0, 0);
-
-    if (c->level() == 0) {
-      assert(level0cache_.find(f->number) != level0cache_.end());
-      level0cache_.at(f->number)->Unref();
-      level0cache_.erase(f->number);
-    }
-
     c->edit()->RemoveFile(c->level(), f->number);
     c->edit()->AddFile(c->level() + 1, f->number, f->file_size, f->smallest,
                        f->largest);
     status = versions_->LogAndApply(c->edit(), &mutex_);
     if (!status.ok()) {
       RecordBackgroundError(status);
+    }
+    if (c->level() == 0) {
+      assert(level0cache_.find(f->number) != level0cache_.end());
+      level0cache_.at(f->number)->Unref();
+      level0cache_.erase(f->number);
     }
     VersionSet::LevelSummaryStorage tmp;
     Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
@@ -764,6 +762,14 @@ void DBImpl::BackgroundCompaction() {
     status = DoCompactionWork(compact);
     if (!status.ok()) {
       RecordBackgroundError(status);
+    }
+    if (c->level() == 0) {
+      for (unsigned int fileIndex = 0; fileIndex < c->OverlappingFileSize(); ++fileIndex){
+        FileMetaData* f = c->input(0, fileIndex);
+        assert(level0cache_.find(f->number) != level0cache_.end());
+        level0cache_.at(f->number)->Unref();
+        level0cache_.erase(f->number);
+      }
     }
     CleanupCompaction(compact);
     c->ReleaseInputs();
@@ -1130,6 +1136,7 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
 }
 
 bool DBImpl::check_l0_cache(const LookupKey& key, std::string* value, Status* s) {
+  //std::cout<<"how many l0 files are cached: "<<level0cache_.size()<<std::endl;
   for (auto pair : level0cache_) {
     if (pair.second->Get(key, value, s)) {
       return true;

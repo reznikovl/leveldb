@@ -362,6 +362,8 @@ class Compaction {
   // is successful.
   void ReleaseInputs();
 
+  int OverlappingFileSize() {return inputs_[0].size();};
+
  private:
   friend class Version;
   friend class VersionSet;

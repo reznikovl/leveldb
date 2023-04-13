@@ -1355,6 +1355,7 @@ Compaction* VersionSet::PickCompaction() {
 
   // Files in level 0 may overlap each other, so pick up all overlapping ones
   if (level == 0) {
+    c->level_ = level;
     InternalKey smallest, largest;
     GetRange(c->inputs_[0], &smallest, &largest);
     // Note that the next call will discard the file we placed in
