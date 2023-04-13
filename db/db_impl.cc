@@ -1535,7 +1535,8 @@ void DBImpl::reconstruct_l0_cache() {
       internal_iter->SeekToFirst();
       for(; internal_iter->Valid(); internal_iter->Next()) {
         Slice key = internal_iter->key();
-        if (!ParseInternalKey(key, &ikey)){
+        if (ParseInternalKey(key, &ikey)){
+          //std::cout<<ikey.user_key.ToString()<<"\n";
           curr->Add(ikey.sequence, ikey.type, ikey.user_key, internal_iter->value());
         }
       }
