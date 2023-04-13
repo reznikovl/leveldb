@@ -497,6 +497,7 @@ Status DBImpl::RecoverLogFile(uint64_t log_number, bool last_log,
       status = WriteLevel0Table(mem, edit, nullptr);
     }
     mem->Unref();
+    mem = nullptr;
   }
 
   return status;
@@ -748,9 +749,11 @@ void DBImpl::BackgroundCompaction() {
       RecordBackgroundError(status);
     }
     if (c->level() == 0) {
-      assert(level0cache_.find(f->number) != level0cache_.end());
-      level0cache_.at(f->number)->Unref();
-      level0cache_.erase(f->number);
+      {
+        assert(level0cache_.find(f->number) != level0cache_.end());
+        level0cache_.at(f->number)->Unref();
+        level0cache_.erase(f->number);
+      }
     }
     VersionSet::LevelSummaryStorage tmp;
     Log(options_.info_log, "Moved #%lld to level-%d %lld bytes %s: %s\n",
@@ -764,11 +767,13 @@ void DBImpl::BackgroundCompaction() {
       RecordBackgroundError(status);
     }
     if (c->level() == 0) {
-      for (unsigned int fileIndex = 0; fileIndex < c->OverlappingFileSize(); ++fileIndex){
-        FileMetaData* f = c->input(0, fileIndex);
-        assert(level0cache_.find(f->number) != level0cache_.end());
-        level0cache_.at(f->number)->Unref();
-        level0cache_.erase(f->number);
+      {
+        for (unsigned int fileIndex = 0; fileIndex < c->OverlappingFileSize(); ++fileIndex){
+          FileMetaData* f = c->input(0, fileIndex);
+          assert(level0cache_.find(f->number) != level0cache_.end());
+          level0cache_.at(f->number)->Unref();
+          level0cache_.erase(f->number);
+        }
       }
     }
     CleanupCompaction(compact);
@@ -1108,7 +1113,7 @@ Iterator* DBImpl::NewInternalIterator(const ReadOptions& options,
     list.push_back(imm_->NewIterator());
     imm_->Ref();
   }
-  for (auto pair : level0cache_) {
+  for (const auto& pair : level0cache_) {
     list.push_back(pair.second->NewIterator());
   }
   versions_->current()->AddIterators(options, &list);
@@ -1137,12 +1142,15 @@ int64_t DBImpl::TEST_MaxNextLevelOverlappingBytes() {
 
 bool DBImpl::check_l0_cache(const LookupKey& key, std::string* value, Status* s) {
   //std::cout<<"how many l0 files are cached: "<<level0cache_.size()<<std::endl;
-  for (auto pair : level0cache_) {
+  MutexLock l(&mutex_);
+  bool found = false;
+  for (const auto& pair : level0cache_) {
     if (pair.second->Get(key, value, s)) {
-      return true;
+      found = true;
+      break;
     }
   }
-  return false;
+  return found;
 }
 
 Status DBImpl::Get(const ReadOptions& options, const Slice& key,
@@ -1163,9 +1171,6 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   mem->Ref();
   if (imm != nullptr) imm->Ref();
   current->Ref();
-  for(auto pair : level0cache_) {
-    pair.second->Ref();
-  }
 
   bool have_stat_update = false;
   Version::GetStats stats;
@@ -1194,9 +1199,6 @@ Status DBImpl::Get(const ReadOptions& options, const Slice& key,
   mem->Unref();
   if (imm != nullptr) imm->Unref();
   current->Unref();
-  for (auto pair : level0cache_) {
-    pair.second->Unref();
-  }
   return s;
 }
 
