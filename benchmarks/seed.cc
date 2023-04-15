@@ -170,9 +170,9 @@ int main(int argc, char** argv) {
                 << std::endl;
       std::vector<std::vector<long>> entries_per_run_with_levels =
           db->GetExactEntriesPerRun();
-      std::vector<long> entries_per_run;
+      std::vector<long> entries_per_run{0}; // level 0 has "0" bpk since it is unused
       // flatten entries per run with levels and deal with 0s for Monkey
-      for (int i = 0; i < entries_per_run_with_levels.size(); i++) {
+      for (int i = 1; i < entries_per_run_with_levels.size(); i++) {
         for (int j = 0; j < entries_per_run_with_levels[i].size(); j++) {
           std::cout << "Level " << i << " run " << j
                     << " size: " << entries_per_run_with_levels[i][j]
