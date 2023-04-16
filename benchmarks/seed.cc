@@ -183,25 +183,28 @@ int main(int argc, char** argv) {
           // necessary?
           break;
         }
-        entries_per_run.insert(entries_per_run.end(),
-                               entries_per_run_with_levels[i].begin(),
-                               entries_per_run_with_levels[i].end());
+        if (i != 0) { // ignore level 0
+          entries_per_run.insert(entries_per_run.end(),
+                                 entries_per_run_with_levels[i].begin(),
+                                 entries_per_run_with_levels[i].end());
+        }
+        
       }
       std::vector<long> bits_per_key_per_run =
           run_algorithm_c(entries_per_run, bpk);
       // average filter size over all level 0 files
-      int level0_allocated_bits = 0;
-      int num_level0_runs = entries_per_run_with_levels[0].size();
+      // int level0_allocated_bits = 0;
+      // int num_level0_runs = entries_per_run_with_levels[0].size();
 
-      for (int i = 0; i < num_level0_runs; i++) {
-        level0_allocated_bits += bits_per_key_per_run[i];
-      }
-      bits_per_key_per_level.push_back(level0_allocated_bits / num_level0_runs);
+      // for (int i = 0; i < num_level0_runs; i++) {
+      //   level0_allocated_bits += bits_per_key_per_run[i];
+      // }
+      bits_per_key_per_level.push_back(0); // level 0 has "0" bits per key
 
       // rest of the levels have one level per run
       bits_per_key_per_level.insert(
           bits_per_key_per_level.end(),
-          bits_per_key_per_run.begin() + num_level0_runs,
+          bits_per_key_per_run.begin(),
           bits_per_key_per_run.end());
     }
     else {
