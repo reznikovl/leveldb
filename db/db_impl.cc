@@ -1082,9 +1082,10 @@ struct IterState {
   Version* const version GUARDED_BY(mu);
   MemTable* const mem GUARDED_BY(mu);
   MemTable* const imm GUARDED_BY(mu);
+  std::vector<MemTable*> const L0_cache GUARDED_BY(mu);
 
-  IterState(port::Mutex* mutex, MemTable* mem, MemTable* imm, Version* version)
-      : mu(mutex), version(version), mem(mem), imm(imm) {}
+  IterState(port::Mutex* mutex, MemTable* mem, MemTable* imm, const std::vector<MemTable*>& L0_cache_imm, Version* version)
+      : mu(mutex), version(version), mem(mem), imm(imm), L0_cache(L0_cache_imm) {}
 };
 
 static void CleanupIteratorState(void* arg1, void* arg2) {
@@ -1092,6 +1093,9 @@ static void CleanupIteratorState(void* arg1, void* arg2) {
   state->mu->Lock();
   state->mem->Unref();
   if (state->imm != nullptr) state->imm->Unref();
+  for (const auto & it : state->L0_cache){
+    it->Unref();
+  }
   state->version->Unref();
   state->mu->Unlock();
   delete state;
@@ -1103,6 +1107,7 @@ Iterator* DBImpl::NewInternalIterator(const ReadOptions& options,
                                       SequenceNumber* latest_snapshot,
                                       uint32_t* seed) {
   mutex_.Lock();
+  std::vector<MemTable*> L0_cache_imm;
   *latest_snapshot = versions_->LastSequence();
 
   // Collect together all needed child iterators
@@ -1115,13 +1120,15 @@ Iterator* DBImpl::NewInternalIterator(const ReadOptions& options,
   }
   for (const auto& pair : level0cache_) {
     list.push_back(pair.second->NewIterator());
+    L0_cache_imm.push_back(pair.second);
+    pair.second->Ref();
   }
   versions_->current()->AddIterators(options, &list);
   Iterator* internal_iter =
       NewMergingIterator(&internal_comparator_, &list[0], list.size());
   versions_->current()->Ref();
 
-  IterState* cleanup = new IterState(&mutex_, mem_, imm_, versions_->current());
+  IterState* cleanup = new IterState(&mutex_, mem_, imm_, L0_cache_imm, versions_->current());
   internal_iter->RegisterCleanup(CleanupIteratorState, cleanup, nullptr);
 
   *seed = ++seed_;
