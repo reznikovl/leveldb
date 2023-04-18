@@ -160,7 +160,7 @@ struct LEVELDB_EXPORT ReadOptions {
 
   // Should the data read for this iteration be cached in memory?
   // Callers may wish to set this field to false for bulk scans.
-  bool fill_cache = true;
+  bool fill_cache = false;
 
   // If "snapshot" is non-null, read as of the supplied snapshot
   // (which must belong to the DB that is being read and which must
