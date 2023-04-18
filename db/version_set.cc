@@ -42,6 +42,7 @@ std::vector<FileMetaData *> Version::GetAllFiles() {
     for (int j = 0; j < files_[i].size(); j++) {
       if(files_[i][j]->level != i) {
         std::cout << "Level information wrong..." << std::endl;
+        assert(false);
       }
     }
   }
