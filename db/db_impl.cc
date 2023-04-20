@@ -1550,6 +1550,8 @@ void DBImpl::reconstruct_l0_cache() {
         }
       }
       level0cache_.insert({file->number, curr});
+      delete internal_iter;
+      delete it;
     }
   }
 }
