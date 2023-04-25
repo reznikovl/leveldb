@@ -37,7 +37,7 @@ struct LEVELDB_EXPORT Options {
 
   // how much bigger a level is than its predecessor. The base is used for how
   // much bigger the last level is than the second to last.
-  int base_scaling_factor = 10;
+  int base_scaling_factor = 2;
 
   // how much the leveling factor changes on adjacent level. If the base factor
   // is 24 and ratio_diff is 2/3, then the ration between level 0 and 1 is 24,
@@ -144,7 +144,7 @@ struct LEVELDB_EXPORT Options {
   // when a database is opened.  This can significantly speed up open.
   //
   // Default: currently false, but may become true later.
-  bool reuse_logs = false;
+  bool reuse_logs = true;
 
   // If non-null, use the specified filter policy to reduce disk reads.
   // Many applications will benefit from passing the result of
