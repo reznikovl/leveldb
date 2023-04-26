@@ -581,10 +581,10 @@ class Benchmark {
         method = &Benchmark::ReadMissing;
       } else if (name == Slice("seekrandom")) {
         method = &Benchmark::SeekRandom;
-      }  else if (name == Slice("seekrandomandnext5")) {
-        method = &Benchmark::SeekRandomAndNext5;
-      } else if (name == Slice("seekrandomandnext50")) {
-        method = &Benchmark::SeekRandomAndNext50;
+      }  else if (name == Slice("seekrandomandnext10")) {
+        method = &Benchmark::SeekRandomAndNext10;
+      } else if (name == Slice("seekrandomandnext100")) {
+        method = &Benchmark::SeekRandomAndNext100;
       } else if (name == Slice("deletedb")) {
         method = &Benchmark::DeleteDB;
       } else if (name == Slice("seekordered")) {
@@ -958,7 +958,7 @@ class Benchmark {
     thread->stats.FinishedSingleOp();
   }
 
-  void SeekRandomAndNext5(ThreadState* thread) {
+  void SeekRandomAndNext10(ThreadState* thread) {
     ReadOptions options;
     int found = 0;
     KeyBuffer key;
@@ -967,7 +967,7 @@ class Benchmark {
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
       iter->Seek(key.slice());
-      int nextOps = 5;
+      int nextOps = 10;
       while (iter->Valid() && nextOps > 0){
         --nextOps;
         iter->Next();
@@ -981,7 +981,7 @@ class Benchmark {
     thread->stats.AddMessage(msg);
   }
 
-  void SeekRandomAndNext50(ThreadState* thread) {
+  void SeekRandomAndNext100(ThreadState* thread) {
     ReadOptions options;
     int found = 0;
     KeyBuffer key;
@@ -990,7 +990,7 @@ class Benchmark {
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
       iter->Seek(key.slice());
-      int nextOps = 50;
+      int nextOps = 100;
       while (iter->Valid() && nextOps > 0){
         --nextOps;
         iter->Next();
