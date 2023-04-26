@@ -1588,7 +1588,7 @@ Status DB::Open(const Options& options, const std::string& dbname, DB** dbptr) {
   }
   if (s.ok()) {
     impl->RemoveObsoleteFiles();
-    // impl->MaybeScheduleCompaction();
+    impl->MaybeScheduleCompaction();
   }
 
   // Reconstruct level 0 cache

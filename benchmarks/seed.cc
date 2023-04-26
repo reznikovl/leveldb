@@ -158,13 +158,12 @@ int main(int argc, char** argv) {
   //   std::cout << "Not compacting L0" << std::endl;
   // }
 
-
+  std::vector<long> bits_per_key_per_level;
   if (bpk == 0) {
     std::cout << "Setting options to empty filters..." << std::endl;
     options.filter_policy = nullptr;
   }
   else {
-    std::vector<long> bits_per_key_per_level;
     if (use_monkey) {
       std::cout << "Calculating Bloom Filter Allocations for Monkey..."
                 << std::endl;
@@ -221,8 +220,13 @@ int main(int argc, char** argv) {
   }
 
 
-  std::cout << "Forcing filters..." << std::endl;
+  std::cout << "Creating Filters..." << std::endl;
   delete db;
+
+  for (int i: bits_per_key_per_level){
+    std::cout << i << ", ";
+  }
+  std::cout << std::endl;
   status = leveldb::DB::Open(options, db_name, &db);
   sleep(5);
   db->ForceFilters();

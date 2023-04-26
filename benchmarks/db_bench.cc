@@ -20,6 +20,7 @@
 #include "util/mutexlock.h"
 #include "util/random.h"
 #include "util/testutil.h"
+#include <iostream>
 
 // Comma-separated list of operations to run in the specified order
 //   Actual benchmarks:
@@ -50,30 +51,35 @@ static const char* FLAGS_benchmarks =
     // "readrandom,"
     //"readrandom,"  // Extra run to allow previous compactions to quiesce
     // "readseq,"
-    //"readreverse,"
+    // "readreverse,"
     // "compact,"
     // "readrandom,"
-    //"readseq,"
-    //"readreverse,"
-    //"fill100K,"
+    // "readseq,"
+    // "readreverse,"
+    // "fill100K,"
     // "crc32c,"
     // "snappycomp,"
     // "snappyuncomp,"
     // "seekrandom,"
     // "deletedb,"
-    //"seekordered,"
+    // "seekordered,"
+    // "closeandopen,"
 
     // "fillseq,"
 
     "fillrandom,"
+    "sleep,"
     "readrandom,"
     "seekrandom,"
     "seekrandomandnext10,"
     "seekrandomandnext100,"
+
+    // "fillrandom,"
+    // "readrandom,"
     ;
 
 // Number of key/values to place in database
-static int FLAGS_num = 2000000;
+static int FLAGS_num =  2000000;
 
 // Number of read operations to do.  If negative, do FLAGS_num reads.
 static int FLAGS_reads = 1000000;
@@ -82,10 +88,14 @@ static int FLAGS_reads = 1000000;
 static int FLAGS_threads = 1;
 
 // Size of each value
-//static int FLAGS_value_size = 40;
-//static int FLAGS_value_size = 100;
-static int FLAGS_value_size = 250;
+//static int FLAGS_value_size = 50;
+static int FLAGS_value_size = 100;
+// static int FLAGS_value_size = 200;
 
+static int FLAGS_base = 2;
+static double FLAGS_ratio = 0.8;
+
+static int FLAGS_sleep = 0;
 
 // Arrange to generate values that shrink to this fraction of
 // their original size after compression
@@ -118,7 +128,7 @@ static int FLAGS_open_files = 0;
 
 // Bloom filter bits per key.
 // Negative means use default settings.
-static int FLAGS_bloom_bits = -1;
+static std::vector<long> FLAGS_bloom_bits;
 
 // Common key prefix length.
 static int FLAGS_key_prefix = 0;
@@ -129,7 +139,7 @@ static int FLAGS_key_prefix = 0;
 static bool FLAGS_use_existing_db = false;
 
 // If true, reuse existing log/MANIFEST files when re-opening a database.
-static bool FLAGS_reuse_logs = false;
+static bool FLAGS_reuse_logs = true;
 
 // If true, use compression.
 static bool FLAGS_compression = false;
@@ -477,10 +487,9 @@ class Benchmark {
  public:
   Benchmark()
       : cache_(FLAGS_cache_size >= 0 ? NewLRUCache(FLAGS_cache_size) : nullptr),
-        // filter_policy_(FLAGS_bloom_bits >= 0
-        //                    ? NewBloomFilterPolicy(FLAGS_bloom_bits)
-        //                    : nullptr),
-        filter_policy_(nullptr),
+        filter_policy_(FLAGS_bloom_bits.size() > 0
+                           ? NewBloomFilterPolicy(FLAGS_bloom_bits)
+                           : nullptr),
         db_(nullptr),
         num_(FLAGS_num),
         value_size_(FLAGS_value_size),
@@ -572,10 +581,10 @@ class Benchmark {
         method = &Benchmark::ReadMissing;
       } else if (name == Slice("seekrandom")) {
         method = &Benchmark::SeekRandom;
-      }  else if (name == Slice("seekrandomandnext10")) {
-        method = &Benchmark::SeekRandomAndNext10;
-      } else if (name == Slice("seekrandomandnext100")) {
-        method = &Benchmark::SeekRandomAndNext100;
+      }  else if (name == Slice("seekrandomandnext5")) {
+        method = &Benchmark::SeekRandomAndNext5;
+      } else if (name == Slice("seekrandomandnext50")) {
+        method = &Benchmark::SeekRandomAndNext50;
       } else if (name == Slice("deletedb")) {
         method = &Benchmark::DeleteDB;
       } else if (name == Slice("seekordered")) {
@@ -602,7 +611,11 @@ class Benchmark {
         method = &Benchmark::SnappyUncompress;
       } else if (name == Slice("heapprofile")) {
         HeapProfile();
-      } else if (name == Slice("stats")) {
+      } else if (name == Slice("closeandopen")){
+        method = &Benchmark::CloseAndOpen;
+      } else if (name == Slice("sleep")){
+        method = &Benchmark::Sleep;
+      }else if (name == Slice("stats")) {
         PrintStats("leveldb.stats");
       } else if (name == Slice("sstables")) {
         PrintStats("leveldb.sstables");
@@ -798,11 +811,10 @@ class Benchmark {
     options.compression =
         FLAGS_compression ? kSnappyCompression : kNoCompression;
 
-    // options.base_scaling_factor = 4;
-    // options.ratio_diff = 1;
+    options.base_scaling_factor = FLAGS_base;
+    options.ratio_diff = FLAGS_ratio;
 
-    options.base_scaling_factor = 4;
-    options.ratio_diff = 0.6;
+    std::cout<<"k="<<options.base_scaling_factor<<", c="<<options.ratio_diff<<std::endl;
 
     Status s = DB::Open(options, FLAGS_db, &db_);
     if (!s.ok()) {
@@ -946,7 +958,7 @@ class Benchmark {
     thread->stats.FinishedSingleOp();
   }
 
-  void SeekRandomAndNext10(ThreadState* thread) {
+  void SeekRandomAndNext5(ThreadState* thread) {
     ReadOptions options;
     int found = 0;
     KeyBuffer key;
@@ -955,7 +967,7 @@ class Benchmark {
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
       iter->Seek(key.slice());
-      int nextOps = 10;
+      int nextOps = 5;
       while (iter->Valid() && nextOps > 0){
         --nextOps;
         iter->Next();
@@ -969,7 +981,7 @@ class Benchmark {
     thread->stats.AddMessage(msg);
   }
 
-  void SeekRandomAndNext100(ThreadState* thread) {
+  void SeekRandomAndNext50(ThreadState* thread) {
     ReadOptions options;
     int found = 0;
     KeyBuffer key;
@@ -978,7 +990,7 @@ class Benchmark {
       const int k = thread->rand.Uniform(FLAGS_num);
       key.Set(k);
       iter->Seek(key.slice());
-      int nextOps = 100;
+      int nextOps = 50;
       while (iter->Valid() && nextOps > 0){
         --nextOps;
         iter->Next();
@@ -1070,6 +1082,16 @@ class Benchmark {
 
   void Compact(ThreadState* thread) { db_->CompactRange(nullptr, nullptr); }
 
+  void CloseAndOpen(ThreadState* thread) { 
+    delete db_;
+    FLAGS_use_existing_db = true;
+    Open();
+  }
+
+  void Sleep(ThreadState* thread) { 
+    sleep(FLAGS_sleep);
+  }
+
   void PrintStats(const char* key) {
     std::string stats;
     if (!db_->GetProperty(key, &stats)) {
@@ -1114,6 +1136,7 @@ int main(int argc, char** argv) {
     double d;
     int n;
     char junk;
+    char s[90];
     if (leveldb::Slice(argv[i]).starts_with("--benchmarks=")) {
       FLAGS_benchmarks = argv[i] + strlen("--benchmarks=");
     } else if (sscanf(argv[i], "--compression_ratio=%lf%c", &d, &junk) == 1) {
@@ -1151,10 +1174,32 @@ int main(int argc, char** argv) {
       FLAGS_key_prefix = n;
     } else if (sscanf(argv[i], "--cache_size=%d%c", &n, &junk) == 1) {
       FLAGS_cache_size = n;
-    } else if (sscanf(argv[i], "--bloom_bits=%d%c", &n, &junk) == 1) {
-      FLAGS_bloom_bits = n;
+    } else if (sscanf(argv[i], "--bloom_bits=%s%c", s, &junk) == 1) {
+      //FLAGS_bloom_bits = n;
+      std::string temp = "";
+      for(int i = 0; i < 90; ++i){
+        if (s[i] == ','){
+          long bits = std::stol(temp);
+          FLAGS_bloom_bits.push_back(bits);
+          std::cout<<bits<<",";
+          temp = "";
+        } else if (s[i] == '.'){
+          long bits = std::stol(temp);
+          FLAGS_bloom_bits.push_back(bits);
+          std::cout<<bits<<"."<<std::endl;
+          break;
+        } else {
+          temp += s[i];
+        }
+      }
     } else if (sscanf(argv[i], "--open_files=%d%c", &n, &junk) == 1) {
       FLAGS_open_files = n;
+    } else if (sscanf(argv[i], "--base=%d%c", &n, &junk) == 1) {
+      FLAGS_base = n;
+    } else if (sscanf(argv[i], "--sleep=%d%c", &n, &junk) == 1) {
+      FLAGS_sleep = n;
+    } else if (sscanf(argv[i], "--ratio=%lf%c", &d, &junk) == 1) {
+      FLAGS_ratio = d;
     } else if (strncmp(argv[i], "--db=", 5) == 0) {
       FLAGS_db = argv[i] + 5;
     } else {
@@ -1169,6 +1214,7 @@ int main(int argc, char** argv) {
   if (FLAGS_db == nullptr) {
     leveldb::g_env->GetTestDirectory(&default_db_path);
     default_db_path += "/dbbench";
+    std::cout<<std::endl<<"db_path: "<<default_db_path<<std::endl;
     FLAGS_db = default_db_path.c_str();
   }
 
