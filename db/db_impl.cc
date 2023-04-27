@@ -1736,6 +1736,7 @@ int DBImpl::RewriteTable(FileMetaData *old_meta, VersionEdit *edit, Version *bas
 std::vector<std::vector<long>> DBImpl::GetExactEntriesPerRun() {
   MutexLock l(&mutex_);
   Version* base = versions_->current();
+  base->Ref();
   std::vector<FileMetaData*> files = base->GetAllFiles();
 
   std::vector<std::vector<long>> result(config::kNumLevels);
@@ -1759,6 +1760,7 @@ std::vector<std::vector<long>> DBImpl::GetExactEntriesPerRun() {
     }
     delete iter;
   }
+  base->Unref();
   return result;
 }
 }
