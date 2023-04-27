@@ -1181,17 +1181,20 @@ int main(int argc, char** argv) {
         if (s[i] == ','){
           long bits = std::stol(temp);
           FLAGS_bloom_bits.push_back(bits);
-          std::cout<<bits<<",";
           temp = "";
         } else if (s[i] == '.'){
           long bits = std::stol(temp);
           FLAGS_bloom_bits.push_back(bits);
-          std::cout<<bits<<"."<<std::endl;
           break;
         } else {
           temp += s[i];
         }
       }
+      std::cout<<"print content in FLAGS_bloom_bits\n";
+      for (auto i : FLAGS_bloom_bits){
+        std::cout<<i<<',';
+      }
+      std::cout<<std::endl;
     } else if (sscanf(argv[i], "--open_files=%d%c", &n, &junk) == 1) {
       FLAGS_open_files = n;
     } else if (sscanf(argv[i], "--base=%d%c", &n, &junk) == 1) {
